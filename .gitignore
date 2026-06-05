@@ -1,0 +1,32 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically its stdout
+*.out
+
+# Dependency directories
+/vendor/
+
+# GoLand / JetBrains IDEs
+.idea/
+
+# VS Code IDE
+.vscode/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Configuration files (Crucial for Security)
+config.yaml
+.env
+
+# Docker volume data (if any created locally)
+postgres_data/

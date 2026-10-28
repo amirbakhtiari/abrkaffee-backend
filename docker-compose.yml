@@ -6,3 +6,39 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: am19(!iR_B
       POSTGRES_DB: abrcoffee_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d abrcoffee_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - abrcoffee_network
+
+  web_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: abrcoffee_app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - DATABASE_HOST=postgres_db
+      - DATABASE_PASSWORD=am19(!iR_B
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - abrcoffee_network
+
+volumes:
+  postgres_data:
+
+networks:
+  abrcoffee_network:
+    driver: bridge

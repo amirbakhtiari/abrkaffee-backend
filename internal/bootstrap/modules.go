@@ -11,6 +11,7 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	categorydomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/category"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
@@ -58,9 +59,12 @@ func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
 }
 
 func registerAuthModule(v1 *gin.RouterGroup, db *gorm.DB, cfg *config.Config) {
-	repo := pg_auth.NewPostgresAuthRepository(db)
-	svc := auth_service.NewAuthService(repo, cfg)
+	authRepo := pg_auth.NewPostgresAuthRepository(db)
+	userRepo := pg_user.NewUserRepository(db)
+
+	svc := auth_service.NewAuthService(authRepo, userRepo, cfg)
 	handler := auth_handler.NewAuthHandler(svc)
+
 	handler.RegisterAuthRoutes(v1)
 	log.Println("⚡ Auth module wired up successfully.")
 }

@@ -7,18 +7,17 @@ func ToDomain(m *UserModel) *user.User {
 		return nil
 	}
 
-	u := user.Rehydrate(
+	return user.Rehydrate(
 		m.ID,
 		m.Name,
 		m.Family,
 		m.Email,
 		m.Mobile,
+		m.BirthDate,
 		m.IsActive,
 		m.CreatedAt,
 		m.UpdatedAt,
 	)
-
-	return u
 }
 
 func FromDomain(u *user.User) *UserModel {
@@ -32,6 +31,7 @@ func FromDomain(u *user.User) *UserModel {
 		Family:    u.Family(),
 		Email:     u.Email(),
 		Mobile:    u.Mobile(),
+		BirthDate: u.BirthDate(),
 		IsActive:  u.IsActive(),
 		CreatedAt: u.CreatedAt(),
 		UpdatedAt: u.UpdatedAt(),

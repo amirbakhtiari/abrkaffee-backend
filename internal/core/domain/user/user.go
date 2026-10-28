@@ -127,6 +127,7 @@ func (u *User) BirthDate() *time.Time {
 func Rehydrate(
 	id uint64,
 	name, family, email, mobile string,
+	birthDate *time.Time,
 	isActive bool,
 	createdAt, updatedAt time.Time,
 ) *User {
@@ -136,6 +137,7 @@ func Rehydrate(
 		family:    family,
 		email:     email,
 		mobile:    mobile,
+		birthdate: birthDate,
 		isActive:  isActive,
 		createdAt: createdAt,
 		updatedAt: updatedAt,

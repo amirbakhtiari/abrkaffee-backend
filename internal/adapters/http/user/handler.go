@@ -68,16 +68,11 @@ func (h *Handler) CreateUser(c *gin.Context) {
 
 func (h *Handler) GetUserByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-
-	if id == 0 {
+	if err != nil || id == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
 	result, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, userdomain.ErrUserNotFound) {
@@ -87,8 +82,10 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+
 	c.JSON(http.StatusOK, toResponse(result))
 }
+
 func (h *Handler) ListUsers(c *gin.Context) {
 	page, err := strconv.ParseUint(c.Query("page"), 10, 64)
 	if err != nil || page < 1 {
@@ -108,9 +105,17 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"items": result,
-		"meta":  meta,
+	items := make([]UserResponse, 0, len(result))
+	for _, u := range result {
+		if u == nil {
+			continue
+		}
+		items = append(items, toResponse(u))
+	}
+
+	c.JSON(http.StatusOK, ListUsersResponse{
+		Items: items,
+		Meta:  paginator.NewMeta(int(page), int(pageSize), meta),
 	})
 }
 
@@ -187,24 +192,26 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 
 	// 6. Return response
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, toResponse(result))
 }
 
 func (h *Handler) DeleteUser(c *gin.Context) {
-
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		if errors.Is(err, userdomain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	if err != nil || id == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}
 
 	err = h.service.Delete(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		switch {
+		case errors.Is(err, userdomain.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		case errors.Is(err, userdomain.ErrInvalidID):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
 		return
 	}
 

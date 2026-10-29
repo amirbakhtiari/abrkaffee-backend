@@ -21,13 +21,12 @@ type ListUserResponse struct {
 
 func FromDomain(u *user.User) UserResponse {
 	return UserResponse{
-		ID:       u.ID,
-		Name:     u.Name,
-		Family:   u.Family,
-		Username: u.Username,
-		Email:    u.Email,
-		Mobile:   u.Mobile,
-		IsActive: u.IsActive,
+		ID:       u.ID(),
+		Name:     u.Name(),
+		Family:   u.Family(),
+		Email:    u.Email(),
+		Mobile:   u.Mobile(),
+		IsActive: u.IsActive(),
 	}
 }
 

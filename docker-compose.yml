@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: am19(!iR_B
       POSTGRES_DB: abrcoffee_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,12 +24,18 @@ services:
       dockerfile: Dockerfile
     container_name: abrcoffee_app
     ports:
-      - "8080:8080"
+      - "8081:8080"
     volumes:
       - ./config.yaml:/app/config.yaml
     environment:
       - DATABASE_HOST=postgres_db
       - DATABASE_PASSWORD=am19(!iR_B
+      - ADMIN_NAME=${ADMIN_NAME}
+      - ADMIN_FAMILY=${ADMIN_FAMILY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_MOBILE=${ADMIN_MOBILE}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
       postgres_db:
         condition: service_healthy

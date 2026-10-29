@@ -61,7 +61,8 @@ func (s ProductAttributeService) List(ctx context.Context, q port.ListProductAtt
 		q.Offset = 0
 	}
 
-	return s.repo.List(ctx, q)
+	items, _, err := s.repo.List(ctx, q)
+	return items, err
 }
 
 func (s ProductAttributeService) Delete(ctx context.Context, id uint64) error {

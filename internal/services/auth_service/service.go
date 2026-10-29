@@ -79,7 +79,14 @@ func (s *AuthService) Register(
 	}
 
 	now := time.Now()
-	account := auth.NewAccount(userID, profile, username, hashedPassword, now)
+	account := auth.NewAccount(
+		userID,
+		profile,
+		username,
+		hashedPassword,
+		"Staff",
+		now,
+	)
 
 	if err := s.repo.CreateAccount(ctx, account); err != nil {
 		return nil, err
@@ -112,7 +119,7 @@ func (s *AuthService) Login(
 	token, err := utils.GenerateToken(
 		account.UserID,
 		account.Username,
-		"Admin",
+		account.Role,
 		s.jwtConfig.JWT.Secret,
 	)
 	if err != nil {

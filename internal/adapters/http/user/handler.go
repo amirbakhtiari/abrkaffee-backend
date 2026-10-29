@@ -1,11 +1,13 @@
 package user
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	userdomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports/user"
 	"github.com/amirbakhtiari/abrcoffee/pkg/paginator"
 	"github.com/gin-gonic/gin"
@@ -37,27 +39,52 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		}
 		birthDate = &t
 	}
+
 	result, err := h.service.Create(
 		c.Request.Context(),
-		req.Name, req.Family,
-		req.Mobile, req.Email,
-		birthDate)
+		req.Name,
+		req.Family,
+		req.Mobile,
+		req.Email,
+		birthDate,
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, userdomain.ErrInvalidNameRequired) ||
+			errors.Is(err, userdomain.ErrInvalidFamilyRequired) ||
+			errors.Is(err, userdomain.ErrInvalidEmail) ||
+			errors.Is(err, userdomain.ErrInvalidMobileRequired) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to create user",
+		})
 		return
 	}
+
 	c.JSON(http.StatusCreated, toResponse(result))
 }
 
 func (h *Handler) GetUserByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
+	if id == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 	result, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, userdomain.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, toResponse(result))
@@ -90,10 +117,16 @@ func (h *Handler) ListUsers(c *gin.Context) {
 func (h *Handler) UpdateUser(c *gin.Context) {
 	// 1. Parse user ID
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil || id == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid user id",
-		})
+	if err != nil {
+		if errors.Is(err, userdomain.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if errors.Is(err, userdomain.ErrInvalidID) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 		return
 	}
 
@@ -137,10 +170,19 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		input,
 	)
 	if err != nil {
-		// Replace with your project's centralized error mapping.
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to update user",
-		})
+		switch {
+		case errors.Is(err, userdomain.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		case errors.Is(err, userdomain.ErrInvalidID):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		case errors.Is(err, userdomain.ErrInvalidNameRequired),
+			errors.Is(err, userdomain.ErrInvalidFamilyRequired),
+			errors.Is(err, userdomain.ErrInvalidEmail),
+			errors.Is(err, userdomain.ErrInvalidMobileRequired):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		}
 		return
 	}
 
@@ -152,7 +194,11 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		if errors.Is(err, userdomain.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

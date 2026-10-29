@@ -22,8 +22,6 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 		cfg.Database.Port,
 	)
 
-	fmt.Println(dsn)
-
 	var db *gorm.DB
 	var err error
 
@@ -32,10 +30,18 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&db_models.UserDB{}, pg_category.CategoryEntity{},
-		&pg_attribute.ProductAttributeModel{}, &pg_attribute.ProductAttributeValueModel{})
+	err = db.AutoMigrate(
+		&db_models.AccountDB{},
+		&pg_category.CategoryEntity{},
+		&pg_attribute.ProductAttributeModel{},
+		&pg_attribute.ProductAttributeValueModel{},
+	)
 	if err != nil {
-		log.Fatalf("❌ Failed to run database migration: %v", err)
+		return nil, fmt.Errorf("failed to run database migration: %w", err)
+	}
+
+	if err := seedInitialAdmin(db); err != nil {
+		return nil, fmt.Errorf("failed to seed initial admin: %w", err)
 	}
 
 	log.Println("✅ Database connection established successfully via Config.")

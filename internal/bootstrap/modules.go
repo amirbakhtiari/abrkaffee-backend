@@ -8,6 +8,7 @@ import (
 	httpcategory "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/category"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/middleware"
 	httpattr "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_attribute"
+	httpuser "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
@@ -16,6 +17,8 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_attribute_service"
+	"github.com/amirbakhtiari/abrcoffee/internal/services/user_service"
+	"github.com/amirbakhtiari/abrcoffee/internal/shared/clock"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -27,16 +30,20 @@ func registerMiddleware(router *gin.Engine, cfg *config.Config) {
 
 func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	v1 := router.Group("/api/v1")
-	//public
-	registerAuthModule(v1, db, cfg)
 
-	//protected group
 	auth := middleware.AuthMiddleware(cfg)
 
+	// Routes requiring authentication
 	private := v1.Group("")
 	private.Use(auth)
 
-	registerAttributeModule(private, db)
+	// Routes requiring Admin role
+	admin := v1.Group("")
+	admin.Use(auth, middleware.RequireRole("Admin"))
+
+	registerAuthModule(v1, admin, db, cfg)
+	registerAttributeModule(admin, db)
+	registerUserModule(admin, db)
 	registerCategoryModule(v1, private, db)
 }
 
@@ -58,14 +65,19 @@ func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
 	log.Println("⚡ Attribute module wired up successfully.")
 }
 
-func registerAuthModule(v1 *gin.RouterGroup, db *gorm.DB, cfg *config.Config) {
+func registerAuthModule(
+	v1 *gin.RouterGroup,
+	admin *gin.RouterGroup,
+	db *gorm.DB,
+	cfg *config.Config,
+) {
 	authRepo := pg_auth.NewPostgresAuthRepository(db)
 	userRepo := pg_user.NewUserRepository(db)
 
 	svc := auth_service.NewAuthService(authRepo, userRepo, cfg)
 	handler := auth_handler.NewAuthHandler(svc)
 
-	handler.RegisterAuthRoutes(v1)
+	handler.RegisterAuthRoutes(v1, admin)
 	log.Println("⚡ Auth module wired up successfully.")
 }
 
@@ -76,4 +88,15 @@ func registerCategoryModule(v1 *gin.RouterGroup, private *gin.RouterGroup, db *g
 	httpcategory.RegisterProtectedRoutes(private, handler)
 	httpcategory.RegisterPublicRoutes(v1, handler)
 	log.Println("⚡ Category module wired up successfully.")
+}
+
+func registerUserModule(private *gin.RouterGroup, db *gorm.DB) {
+	repo := pg_user.NewUserRepository(db)
+	systemClock := clock.NewSystemClock()
+	service := user_service.NewService(repo, systemClock)
+	handler := httpuser.NewHandler(service)
+
+	httpuser.RegisterUserRoutes(private, handler)
+
+	log.Println("⚡ User module wired up successfully.")
 }

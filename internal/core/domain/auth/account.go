@@ -12,6 +12,7 @@ type Account struct {
 	Profile      *user.User
 	Username     string
 	PasswordHash string
+	Role         string
 	IsActive     bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -22,6 +23,7 @@ func NewAccount(
 	profile *user.User,
 	username string,
 	passwordHash string,
+	role string,
 	now time.Time,
 ) *Account {
 	return &Account{
@@ -29,6 +31,7 @@ func NewAccount(
 		Profile:      profile,
 		Username:     username,
 		PasswordHash: passwordHash,
+		Role:         role,
 		IsActive:     true,
 		CreatedAt:    now,
 		UpdatedAt:    now,

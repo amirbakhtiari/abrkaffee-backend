@@ -13,3 +13,7 @@ type UserModel struct {
 	CreatedAt time.Time  `gorm:"index"`
 	UpdatedAt time.Time  `gorm:"index"`
 }
+
+func (UserModel) TableName() string {
+	return "users"
+}

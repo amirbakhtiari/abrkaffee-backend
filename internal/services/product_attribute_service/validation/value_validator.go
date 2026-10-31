@@ -1,5 +1,11 @@
 package validation
 
+import (
+	"strconv"
+
+	"github.com/amirbakhtiari/abrcoffee/internal/core/ports/product_attribute"
+)
+
 func ValidateCreateValue(dto product_attribute.CreateAttributeValueDTO) error {
 	var errs Errors
 
@@ -22,9 +28,11 @@ func ValidateValues(dtos []product_attribute.CreateAttributeValueDTO) error {
 	var errs Errors
 
 	for i, v := range dtos {
+		index := strconv.Itoa(i)
+
 		if v.Name == "" {
 			errs = append(errs, NewError(
-				"values["+string(rune(i))+"].name",
+				"values["+index+"].name",
 				"required",
 				v.Name,
 			))
@@ -32,7 +40,7 @@ func ValidateValues(dtos []product_attribute.CreateAttributeValueDTO) error {
 
 		if v.SortOrder < 0 {
 			errs = append(errs, NewError(
-				"values["+string(rune(i))+"].sortOrder",
+				"values["+index+"].sortOrder",
 				"must be >= 0",
 				v.SortOrder,
 			))

@@ -1,6 +1,10 @@
 package db_models
 
-import "time"
+import (
+	"time"
+
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
+)
 
 type AccountDB struct {
 	ID           uint64 `gorm:"primaryKey;autoIncrement"`
@@ -12,7 +16,7 @@ type AccountDB struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 
-	User UserDB `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User pg_user.UserModel `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func (AccountDB) TableName() string {

@@ -56,7 +56,7 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 
 func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	var req dto.LoginRequest
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

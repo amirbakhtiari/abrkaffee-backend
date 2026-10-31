@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/auth"
-	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports"
 	"gorm.io/gorm"
 )
@@ -136,17 +136,7 @@ func (repo *PostgresAuthRepository) ListAccounts(
 func (repo *PostgresAuthRepository) toDomain(
 	model *db_models.AccountDB,
 ) *auth.Account {
-	profile := user.Rehydrate(
-		model.User.ID,
-		model.User.Name,
-		model.User.Family,
-		model.User.Email,
-		model.User.Mobile,
-		nil,
-		model.User.IsActive,
-		model.User.CreatedAt,
-		model.User.UpdatedAt,
-	)
+	profile := pg_user.ToDomain(&model.User)
 
 	return &auth.Account{
 		ID:           model.ID,

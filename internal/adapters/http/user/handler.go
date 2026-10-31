@@ -121,17 +121,10 @@ func (h *Handler) ListUsers(c *gin.Context) {
 
 func (h *Handler) UpdateUser(c *gin.Context) {
 	// 1. Parse user ID
+	// 1. Parse user ID
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		if errors.Is(err, userdomain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
-			return
-		}
-		if errors.Is(err, userdomain.ErrInvalidID) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+	if err != nil || id == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}
 

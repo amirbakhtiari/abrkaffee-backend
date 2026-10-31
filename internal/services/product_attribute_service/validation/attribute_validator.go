@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"strconv"
+
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports/product_attribute"
 )
 
@@ -39,7 +41,7 @@ func ValidateUpdateAttribute(dto product_attribute.UpdateAttributeDTO) error {
 
 	for i, v := range dto.Values {
 		if v.Name == "" {
-			errs = append(errs, NewError("values["+string(rune(i))+"].name", "required", v.Name))
+			errs = append(errs, NewError("values["+strconv.Itoa(i)+"].name", "required", v.Name))
 		}
 	}
 

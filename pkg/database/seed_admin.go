@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"github.com/amirbakhtiari/abrcoffee/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -50,7 +51,7 @@ func seedInitialAdmin(db *gorm.DB) error {
 
 		now := time.Now()
 
-		profile := &db_models.UserDB{
+		profile := &pg_user.UserModel{
 			Name:      name,
 			Family:    family,
 			Email:     email,

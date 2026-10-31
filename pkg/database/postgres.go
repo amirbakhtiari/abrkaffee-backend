@@ -9,6 +9,7 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -30,14 +31,14 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(
+	if err := db.AutoMigrate(
+		&pg_user.UserModel{},
 		&db_models.AccountDB{},
 		&pg_category.CategoryEntity{},
 		&pg_attribute.ProductAttributeModel{},
 		&pg_attribute.ProductAttributeValueModel{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to run database migration: %w", err)
+	); err != nil {
+		return nil, fmt.Errorf("auto migrate database: %w", err)
 	}
 
 	if err := seedInitialAdmin(db); err != nil {

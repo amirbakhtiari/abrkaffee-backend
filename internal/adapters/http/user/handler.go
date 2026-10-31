@@ -148,11 +148,11 @@ func (h *Handler) SetUserStatus(c *gin.Context) {
 		return
 	}
 	var req SetUserStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+	if err := c.ShouldBindJSON(&req); err != nil || req.IsActive == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "is_active is required and must be a boolean"})
 		return
 	}
-	if err := h.service.SetActive(c.Request.Context(), id, req.IsActive); err != nil {
+	if err := h.service.SetActive(c.Request.Context(), id, *req.IsActive); err != nil {
 		switch {
 		case errors.Is(err, userdomain.ErrUserNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})

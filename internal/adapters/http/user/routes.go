@@ -9,6 +9,7 @@ func RegisterUserRoutes(router *gin.RouterGroup, handler *Handler) {
 		users.GET("", handler.ListUsers)
 		users.GET("/:id", handler.GetUserByID)
 		users.PUT("/:id", handler.UpdateUser)
+		users.PATCH("/:id/status", handler.SetUserStatus)
 		users.DELETE("/:id", handler.DeleteUser)
 	}
 }

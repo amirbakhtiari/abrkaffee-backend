@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	domain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports/user"
 	"github.com/amirbakhtiari/abrcoffee/pkg/paginator"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct {
@@ -49,15 +51,9 @@ func (r *Repository) List(ctx context.Context, req paginator.Request) ([]*domain
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-
-	if err := query.
-		Limit(req.PageSize).
-		Offset(req.Offset()).
-		Order("created_at DESC").
-		Find(&models).Error; err != nil {
+	if err := query.Limit(req.PageSize).Offset(req.Offset()).Order("created_at DESC").Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
-
 	users := make([]*domain.User, len(models))
 	for i := range models {
 		users[i] = ToDomain(&models[i])
@@ -69,25 +65,21 @@ func (r *Repository) Update(ctx context.Context, u *domain.User) (*domain.User, 
 	if u == nil {
 		return nil, domain.ErrUserIsNil
 	}
-
 	model := FromDomain(u)
-	result := r.db.WithContext(ctx).
-		Model(&UserModel{}).
-		Where("id = ?", u.ID()).
-		Updates(model)
-
+	result := r.db.WithContext(ctx).Model(&UserModel{}).Where("id = ?", u.ID()).Updates(model)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
 		return nil, domain.ErrUserNotFound
 	}
-
 	return ToDomain(model), nil
 }
 
-func (r *Repository) Delete(ctx context.Context, id uint64) error {
-	result := r.db.WithContext(ctx).Delete(&UserModel{}, id)
+func (r *Repository) SetActive(ctx context.Context, id uint64, active bool) error {
+	result := r.db.WithContext(ctx).Model(&UserModel{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{"is_active": active, "updated_at": gorm.Expr("CURRENT_TIMESTAMP")})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -95,4 +87,33 @@ func (r *Repository) Delete(ctx context.Context, id uint64) error {
 		return domain.ErrUserNotFound
 	}
 	return nil
+}
+
+func (r *Repository) Delete(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing UserModel
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&existing, id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return domain.ErrUserNotFound
+			}
+			return err
+		}
+
+		var accountCount int64
+		if err := tx.Model(&db_models.AccountDB{}).Where("user_id = ?", id).Count(&accountCount).Error; err != nil {
+			return err
+		}
+		if accountCount > 0 {
+			return domain.ErrUserHasOperationalHistory
+		}
+
+		result := tx.Delete(&UserModel{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrUserNotFound
+		}
+		return nil
+	})
 }

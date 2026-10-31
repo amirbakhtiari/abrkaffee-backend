@@ -12,5 +12,6 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uint64) (*user.User, error)
 	List(ctx context.Context, req paginator.Request) ([]*user.User, int64, error)
 	Update(ctx context.Context, u *user.User) (*user.User, error)
+	SetActive(ctx context.Context, id uint64, active bool) error
 	Delete(ctx context.Context, id uint64) error
 }

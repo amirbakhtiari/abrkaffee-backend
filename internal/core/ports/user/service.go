@@ -9,10 +9,10 @@ import (
 )
 
 type Service interface {
-	Create(ctx context.Context, name, family, mobile, email string,
-		birthDate *time.Time) (*user.User, error)
+	Create(ctx context.Context, name, family, mobile, email string, birthDate *time.Time) (*user.User, error)
 	GetByID(ctx context.Context, id uint64) (*user.User, error)
 	List(ctx context.Context, req paginator.Request) ([]*user.User, int64, error)
 	Update(ctx context.Context, id uint64, dto UpdateUserDTO) (*user.User, error)
+	SetActive(ctx context.Context, id uint64, active bool) error
 	Delete(ctx context.Context, id uint64) error
 }

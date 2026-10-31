@@ -16,6 +16,10 @@ type UpdateUserRequest struct {
 	BirthDate string `json:"birth_date"`
 }
 
+type SetUserStatusRequest struct {
+	IsActive *bool `json:"is_active" binding:"required"`
+}
+
 type ListUsersRequest struct {
 	Page     int `form:"page"`
 	PageSize int `form:"page_size"`

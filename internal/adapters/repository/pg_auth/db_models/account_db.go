@@ -16,7 +16,7 @@ type AccountDB struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 
-	User pg_user.UserModel `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User pg_user.UserModel `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 }
 
 func (AccountDB) TableName() string {

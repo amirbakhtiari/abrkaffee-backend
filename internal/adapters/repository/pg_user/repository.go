@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	domain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports/user"
 	"github.com/amirbakhtiari/abrcoffee/pkg/paginator"
@@ -100,7 +99,7 @@ func (r *Repository) Delete(ctx context.Context, id uint64) error {
 		}
 
 		var accountCount int64
-		if err := tx.Model(&db_models.AccountDB{}).Where("user_id = ?", id).Count(&accountCount).Error; err != nil {
+		if err := tx.Table("accounts").Where("user_id = ?", id).Count(&accountCount).Error; err != nil {
 			return err
 		}
 		if accountCount > 0 {

@@ -17,7 +17,7 @@ type UpdateUserRequest struct {
 }
 
 type SetUserStatusRequest struct {
-	IsActive bool `json:"is_active"`
+	IsActive *bool `json:"is_active" binding:"required"`
 }
 
 type ListUsersRequest struct {

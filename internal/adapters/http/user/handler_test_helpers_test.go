@@ -23,7 +23,10 @@ type mockUserService struct {
 		*time.Time,
 	) (*domain.User, error)
 
-	getByIDFn func(context.Context, uint64) (*domain.User, error)
+	getByIDFn func(
+		context.Context,
+		uint64,
+	) (*domain.User, error)
 
 	listFn func(
 		context.Context,
@@ -36,7 +39,16 @@ type mockUserService struct {
 		port.UpdateUserDTO,
 	) (*domain.User, error)
 
-	deleteFn func(context.Context, uint64) error
+	deleteFn func(
+		context.Context,
+		uint64,
+	) error
+
+	setActiveFn func(
+		context.Context,
+		uint64,
+		bool,
+	) (*domain.User, error)
 }
 
 var _ port.Service = (*mockUserService)(nil)
@@ -49,6 +61,7 @@ func (m *mockUserService) Create(
 	if m.createFn != nil {
 		return m.createFn(ctx, name, family, mobile, email, birthDate)
 	}
+
 	panic("unexpected call: Create")
 }
 
@@ -59,6 +72,7 @@ func (m *mockUserService) GetByID(
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
+
 	panic("unexpected call: GetByID")
 }
 
@@ -69,6 +83,7 @@ func (m *mockUserService) List(
 	if m.listFn != nil {
 		return m.listFn(ctx, req)
 	}
+
 	panic("unexpected call: List")
 }
 
@@ -80,6 +95,7 @@ func (m *mockUserService) Update(
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, dto)
 	}
+
 	panic("unexpected call: Update")
 }
 
@@ -90,7 +106,20 @@ func (m *mockUserService) Delete(
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, id)
 	}
+
 	panic("unexpected call: Delete")
+}
+
+func (m *mockUserService) SetActive(
+	ctx context.Context,
+	id uint64,
+	isActive bool,
+) (*domain.User, error) {
+	if m.setActiveFn != nil {
+		return m.setActiveFn(ctx, id, isActive)
+	}
+
+	panic("unexpected call: SetActive")
 }
 
 func newTestRouter(handler *Handler) *gin.Engine {
@@ -103,6 +132,7 @@ func newTestRouter(handler *Handler) *gin.Engine {
 	r.GET("/users/:id", handler.GetUserByID)
 	r.PUT("/users/:id", handler.UpdateUser)
 	r.DELETE("/users/:id", handler.DeleteUser)
+	r.PATCH("/users/:id/status", handler.SetUserActive)
 
 	return r
 }
@@ -113,20 +143,45 @@ func performRequest(
 	target string,
 	body string,
 ) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, target, strings.NewReader(body))
+	req := httptest.NewRequest(
+		method,
+		target,
+		strings.NewReader(body),
+	)
+
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
 	recorder := httptest.NewRecorder()
+
 	router.ServeHTTP(recorder, req)
 
 	return recorder
 }
 
 func testUser() *domain.User {
-	now := time.Date(2026, time.January, 10, 12, 0, 0, 0, time.UTC)
-	birthDate := time.Date(1995, time.May, 20, 0, 0, 0, 0, time.UTC)
+	now := time.Date(
+		2026,
+		time.January,
+		10,
+		12,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
+	birthDate := time.Date(
+		1995,
+		time.May,
+		20,
+		0,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
 
 	return domain.Rehydrate(
 		42,

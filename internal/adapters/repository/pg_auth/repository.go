@@ -3,12 +3,15 @@ package pg_auth
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/auth"
+	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var _ ports.AuthRepository = (*PostgresAuthRepository)(nil)
@@ -18,7 +21,9 @@ type PostgresAuthRepository struct {
 }
 
 func NewPostgresAuthRepository(db *gorm.DB) *PostgresAuthRepository {
-	return &PostgresAuthRepository{db: db}
+	return &PostgresAuthRepository{
+		db: db,
+	}
 }
 
 func (repo *PostgresAuthRepository) GetByUserID(
@@ -34,6 +39,7 @@ func (repo *PostgresAuthRepository) GetByUserID(
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +60,7 @@ func (repo *PostgresAuthRepository) GetByUsername(
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -69,17 +76,43 @@ func (repo *PostgresAuthRepository) CreateAccount(
 		return errors.New("account and profile are required")
 	}
 
-	model := &db_models.AccountDB{
-		UserID:       account.UserID,
-		Username:     account.Username,
-		PasswordHash: account.PasswordHash,
-		Role:         account.Role,
-		IsActive:     account.IsActive,
-		CreatedAt:    account.CreatedAt,
-		UpdatedAt:    account.UpdatedAt,
-	}
+	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var profile pg_user.UserModel
 
-	return repo.db.WithContext(ctx).Create(model).Error
+		// همان قفلی که Delete User می‌گیرد.
+		// بنابراین ساخت Account و حذف User با هم race نمی‌کنند.
+		err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&profile, account.UserID).Error
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return user.ErrUserNotFound
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if !profile.IsActive {
+			return user.ErrUserInactive
+		}
+
+		model := &db_models.AccountDB{
+			UserID:       account.UserID,
+			Username:     account.Username,
+			PasswordHash: account.PasswordHash,
+			Role:         account.Role,
+			IsActive:     account.IsActive,
+			CreatedAt:    account.CreatedAt,
+			UpdatedAt:    account.UpdatedAt,
+		}
+
+		if err := tx.Create(model).Error; err != nil {
+			return fmt.Errorf("create account: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (repo *PostgresAuthRepository) UpdateAccount(
@@ -90,7 +123,7 @@ func (repo *PostgresAuthRepository) UpdateAccount(
 		return errors.New("account is required")
 	}
 
-	return repo.db.WithContext(ctx).
+	result := repo.db.WithContext(ctx).
 		Model(&db_models.AccountDB{}).
 		Where("user_id = ?", account.UserID).
 		Updates(map[string]interface{}{
@@ -98,7 +131,17 @@ func (repo *PostgresAuthRepository) UpdateAccount(
 			"password_hash": account.PasswordHash,
 			"is_active":     account.IsActive,
 			"updated_at":    account.UpdatedAt,
-		}).Error
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }
 
 func (repo *PostgresAuthRepository) ListAccounts(
@@ -106,8 +149,10 @@ func (repo *PostgresAuthRepository) ListAccounts(
 	limit int,
 	offset int,
 ) ([]*auth.Account, int64, error) {
-	var models []db_models.AccountDB
-	var total int64
+	var (
+		models []db_models.AccountDB
+		total  int64
+	)
 
 	query := repo.db.WithContext(ctx).Model(&db_models.AccountDB{})
 
@@ -121,11 +166,13 @@ func (repo *PostgresAuthRepository) ListAccounts(
 		Limit(limit).
 		Offset(offset).
 		Find(&models).Error
+
 	if err != nil {
 		return nil, 0, err
 	}
 
 	accounts := make([]*auth.Account, 0, len(models))
+
 	for i := range models {
 		accounts = append(accounts, repo.toDomain(&models[i]))
 	}

@@ -18,17 +18,23 @@ type Handler struct {
 }
 
 func NewHandler(service user.Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{
+		service: service,
+	}
 }
 
 func (h *Handler) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
 
 	var birthDate *time.Time
+
 	if req.BirthDate != "" {
 		t, err := time.Parse(time.DateOnly, req.BirthDate)
 		if err != nil {
@@ -37,6 +43,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 			})
 			return
 		}
+
 		birthDate = &t
 	}
 
@@ -48,12 +55,15 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		req.Email,
 		birthDate,
 	)
+
 	if err != nil {
 		if errors.Is(err, userdomain.ErrInvalidNameRequired) ||
 			errors.Is(err, userdomain.ErrInvalidFamilyRequired) ||
 			errors.Is(err, userdomain.ErrInvalidEmail) ||
 			errors.Is(err, userdomain.ErrInvalidMobileRequired) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
 			return
 		}
 
@@ -68,18 +78,27 @@ func (h *Handler) CreateUser(c *gin.Context) {
 
 func (h *Handler) GetUserByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
 	if err != nil || id == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid id",
+		})
 		return
 	}
 
 	result, err := h.service.GetByID(c.Request.Context(), id)
+
 	if err != nil {
 		if errors.Is(err, userdomain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "user not found",
+			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
 		return
 	}
 
@@ -88,48 +107,70 @@ func (h *Handler) GetUserByID(c *gin.Context) {
 
 func (h *Handler) ListUsers(c *gin.Context) {
 	page, err := strconv.ParseUint(c.Query("page"), 10, 64)
+
 	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid page",
+		})
 		return
 	}
+
 	pageSize, err := strconv.ParseUint(c.Query("page_size"), 10, 64)
+
 	if err != nil || pageSize < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page_size"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid page_size",
+		})
 		return
 	}
-	result, meta, err := h.service.List(c.Request.Context(), paginator.Request{
-		Page:     int(page),
-		PageSize: int(pageSize),
-	})
+
+	result, total, err := h.service.List(
+		c.Request.Context(),
+		paginator.Request{
+			Page:     int(page),
+			PageSize: int(pageSize),
+		},
+	)
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
+
 	items := make([]UserResponse, 0, len(result))
+
 	for _, u := range result {
 		if u == nil {
 			continue
 		}
+
 		items = append(items, toResponse(u))
 	}
 
 	c.JSON(http.StatusOK, ListUsersResponse{
 		Items: items,
-		Meta:  paginator.NewMeta(int(page), int(pageSize), meta),
+		Meta: paginator.NewMeta(
+			int(page),
+			int(pageSize),
+			total,
+		),
 	})
 }
 
 func (h *Handler) UpdateUser(c *gin.Context) {
-	// 1. Parse user ID
-	// 1. Parse user ID
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
 	if err != nil || id == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid user id",
+		})
 		return
 	}
 
-	// 2. Parse request body
 	var req UpdateUserRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid request body",
@@ -137,7 +178,6 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// 3. Parse birth date
 	var birthDate *time.Time
 
 	if strings.TrimSpace(req.BirthDate) != "" {
@@ -152,7 +192,6 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		birthDate = &parsed
 	}
 
-	// 4. Build service DTO
 	input := user.UpdateUserDTO{
 		Name:      req.Name,
 		Family:    req.Family,
@@ -161,52 +200,136 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		BirthDate: birthDate,
 	}
 
-	// 5. Call service
 	result, err := h.service.Update(
 		c.Request.Context(),
 		id,
 		input,
 	)
+
 	if err != nil {
 		switch {
 		case errors.Is(err, userdomain.ErrUserNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "user not found",
+			})
+
 		case errors.Is(err, userdomain.ErrInvalidID):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid user id",
+			})
+
 		case errors.Is(err, userdomain.ErrInvalidNameRequired),
 			errors.Is(err, userdomain.ErrInvalidFamilyRequired),
 			errors.Is(err, userdomain.ErrInvalidEmail),
 			errors.Is(err, userdomain.ErrInvalidMobileRequired):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to update user",
+			})
 		}
+
 		return
 	}
 
-	// 6. Return response
 	c.JSON(http.StatusOK, toResponse(result))
 }
 
 func (h *Handler) DeleteUser(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || id == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "شناسه کاربر نامعتبر است.",
+		})
 		return
 	}
 
 	err = h.service.Delete(c.Request.Context(), id)
+
 	if err != nil {
 		switch {
 		case errors.Is(err, userdomain.ErrUserNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "کاربر موردنظر پیدا نشد.",
+			})
+
 		case errors.Is(err, userdomain.ErrInvalidID):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "شناسه کاربر نامعتبر است.",
+			})
+
+		case errors.Is(err, userdomain.ErrUserHasAccount):
+			c.JSON(http.StatusConflict, gin.H{
+				"message": "این کاربر دارای حساب کاربری است و امکان حذف آن وجود ندارد. به‌جای حذف، حساب کاربر را غیرفعال کنید.",
+			})
+
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "خطایی هنگام حذف کاربر رخ داد.",
+			})
 		}
+
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "کاربر با موفقیت حذف شد.",
+	})
+}
+
+type SetUserActiveRequest struct {
+	IsActive bool `json:"is_active"`
+}
+
+func (h *Handler) SetUserActive(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
+	if err != nil || id == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid user id",
+		})
+		return
+	}
+
+	var req SetUserActiveRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid request body",
+		})
+		return
+	}
+
+	result, err := h.service.SetActive(
+		c.Request.Context(),
+		id,
+		req.IsActive,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, userdomain.ErrUserNotFound):
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "user not found",
+			})
+
+		case errors.Is(err, userdomain.ErrInvalidID):
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid user id",
+			})
+
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to change user status",
+			})
+		}
+
+		return
+	}
+
+	c.JSON(http.StatusOK, toResponse(result))
 }

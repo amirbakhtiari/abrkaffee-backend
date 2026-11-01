@@ -20,6 +20,7 @@ var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrInvalidPassword   = errors.New("invalid password")
 )
+
 var _ ports.AuthService = (*AuthService)(nil)
 
 type AuthService struct {
@@ -48,19 +49,27 @@ func (s *AuthService) Register(
 ) (*auth.Account, error) {
 	profile, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) ||
+			errors.Is(err, user.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
+
 		return nil, err
 	}
+
 	if profile == nil {
 		return nil, ErrUserNotFound
+	}
+
+	if !profile.IsActive() {
+		return nil, user.ErrUserInactive
 	}
 
 	existing, err := s.repo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
+
 	if existing != nil {
 		return nil, ErrUserAlreadyExists
 	}
@@ -69,6 +78,7 @@ func (s *AuthService) Register(
 	if err != nil {
 		return nil, err
 	}
+
 	if existing != nil {
 		return nil, ErrUserAlreadyExists
 	}
@@ -79,6 +89,7 @@ func (s *AuthService) Register(
 	}
 
 	now := time.Now()
+
 	account := auth.NewAccount(
 		userID,
 		profile,
@@ -104,12 +115,18 @@ func (s *AuthService) Login(
 	if err != nil {
 		return "", err
 	}
+
 	if account == nil {
 		return "", errors.New("invalid credentials")
 	}
 
-	if !account.IsActive || account.Profile == nil || !account.Profile.IsActive() {
-		return "", errors.New("your account has been deactivated. please contact support")
+	// هر دو وضعیت باید فعال باشند.
+	if !account.IsActive ||
+		account.Profile == nil ||
+		!account.Profile.IsActive() {
+		return "", errors.New(
+			"your account has been deactivated. please contact support",
+		)
 	}
 
 	if !utils.CheckPasswordHash(password, account.PasswordHash) {
@@ -138,6 +155,7 @@ func (s *AuthService) UpdatePassword(
 	if err != nil {
 		return err
 	}
+
 	if account == nil {
 		return ErrUserNotFound
 	}
@@ -166,6 +184,7 @@ func (s *AuthService) ChangeStatus(
 	if err != nil {
 		return err
 	}
+
 	if account == nil {
 		return ErrUserNotFound
 	}
@@ -188,6 +207,7 @@ func (s *AuthService) GetUsersList(
 	}
 
 	meta := paginator.NewMeta(req.Page, req.PageSize, total)
+
 	return users, meta, nil
 }
 
@@ -201,6 +221,7 @@ func (s *AuthService) UpdateProfile(
 	if err != nil {
 		return err
 	}
+
 	if profile == nil {
 		return ErrUserNotFound
 	}
@@ -217,6 +238,7 @@ func (s *AuthService) UpdateProfile(
 	}
 
 	_, err = s.userRepo.Update(ctx, profile)
+
 	return err
 }
 

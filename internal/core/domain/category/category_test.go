@@ -2,8 +2,8 @@ package category
 
 import (
 	"errors"
-	"testing"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -30,9 +30,9 @@ func TestNewCategoryRejectsInvalidFields(t *testing.T) {
 	tests := []struct {
 		name         string
 		categoryName string
-		slug     string
-		priority int
-		wantErr  error
+		slug         string
+		priority     int
+		wantErr      error
 	}{
 		{name: "empty name", categoryName: " ", slug: "valid", wantErr: ErrCategoryNameEmpty},
 		{name: "long name", categoryName: strings.Repeat("ا", MaxCategoryNameLength+1), slug: "valid", wantErr: ErrCategoryNameTooLong},

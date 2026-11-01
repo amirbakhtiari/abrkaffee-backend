@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const MaxCategoryNameLength = 100
@@ -24,12 +25,14 @@ type Category struct {
 	updatedAt time.Time
 }
 
-func NewCategory(name string, slug string, isActive bool, priority int, clock Clock) (*Category, error) {
+func NewCategory(name, slug string, isActive bool, priority int, clock Clock) (*Category, error) {
 	name = strings.TrimSpace(name)
-	slug = strings.TrimSpace(slug)
+	slug = normalizeSlug(slug)
+
 	if err := validateFields(name, slug, priority); err != nil {
 		return nil, err
 	}
+
 	now := clock()
 	return &Category{
 		name:      name,
@@ -69,10 +72,12 @@ func (c *Category) UpdatedAt() time.Time { return c.updatedAt }
 
 func (c *Category) Edit(name, slug string, priority int, clock Clock) error {
 	name = strings.TrimSpace(name)
-	slug = strings.TrimSpace(slug)
+	slug = normalizeSlug(slug)
+
 	if err := validateFields(name, slug, priority); err != nil {
 		return err
 	}
+
 	c.name = name
 	c.slug = slug
 	c.priority = priority
@@ -85,19 +90,21 @@ func (c *Category) Rename(name string, clock Clock) error {
 	if name == "" {
 		return ErrCategoryNameEmpty
 	}
-	if len(name) > MaxCategoryNameLength {
+	if utf8.RuneCountInString(name) > MaxCategoryNameLength {
 		return ErrCategoryNameTooLong
 	}
+
 	c.name = name
 	c.updatedAt = clock()
 	return nil
 }
 
 func (c *Category) ChangeSlug(slug string, clock Clock) error {
-	slug = strings.ToLower(strings.TrimSpace(slug))
-	if slug == "" || !slugRegex.MatchString(slug) {
+	slug = normalizeSlug(slug)
+	if !slugRegex.MatchString(slug) {
 		return ErrCategorySlugInvalid
 	}
+
 	c.slug = slug
 	c.updatedAt = clock()
 	return nil
@@ -107,6 +114,7 @@ func (c *Category) Reprioritize(priority int, clock Clock) error {
 	if priority < 0 {
 		return ErrCategoryPriorityInvalid
 	}
+
 	c.priority = priority
 	c.updatedAt = clock()
 	return nil
@@ -126,14 +134,18 @@ func (c *Category) Deactivate(clock Clock) {
 	}
 }
 
+func normalizeSlug(slug string) string {
+	return strings.ToLower(strings.TrimSpace(slug))
+}
+
 func validateFields(name, slug string, priority int) error {
 	if name == "" {
 		return ErrCategoryNameEmpty
 	}
-	if len(name) > MaxCategoryNameLength {
+	if utf8.RuneCountInString(name) > MaxCategoryNameLength {
 		return ErrCategoryNameTooLong
 	}
-	if slug == "" || !slugRegex.MatchString(slug) {
+	if !slugRegex.MatchString(slug) {
 		return ErrCategorySlugInvalid
 	}
 	if priority < 0 {

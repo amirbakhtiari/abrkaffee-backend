@@ -1,0 +1,10 @@
+.git
+.idea
+.env
+.env.*
+!.env.example
+api
+*.log
+tmp/
+data/
+coverage/

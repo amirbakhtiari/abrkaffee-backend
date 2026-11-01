@@ -17,14 +17,17 @@ func Translate(err error) error {
 	if err == nil {
 		return nil
 	}
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return gorm.ErrRecordNotFound
 	}
+
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		if translatedErr, exists := constraintMap[pgErr.ConstraintName]; exists {
 			return translatedErr
 		}
 	}
+
 	return err
 }

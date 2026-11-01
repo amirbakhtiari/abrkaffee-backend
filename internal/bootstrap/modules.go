@@ -44,7 +44,7 @@ func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	registerAuthModule(v1, admin, db, cfg)
 	registerAttributeModule(admin, db)
 	registerUserModule(admin, db)
-	registerCategoryModule(v1, private, db)
+	registerCategoryModule(v1, admin, db)
 }
 
 func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
@@ -81,15 +81,6 @@ func registerAuthModule(
 	log.Println("⚡ Auth module wired up successfully.")
 }
 
-func registerCategoryModule(v1 *gin.RouterGroup, private *gin.RouterGroup, db *gorm.DB) {
-	repo := pg_category.NewPostgresRepository(db)
-	service := category_service.NewCategoryService(repo, categorydomain.DefaultClock)
-	handler := httpcategory.NewHandler(service)
-	httpcategory.RegisterProtectedRoutes(private, handler)
-	httpcategory.RegisterPublicRoutes(v1, handler)
-	log.Println("⚡ Category module wired up successfully.")
-}
-
 func registerUserModule(private *gin.RouterGroup, db *gorm.DB) {
 	repo := pg_user.NewUserRepository(db)
 	systemClock := clock.NewSystemClock()
@@ -99,4 +90,28 @@ func registerUserModule(private *gin.RouterGroup, db *gorm.DB) {
 	httpuser.RegisterUserRoutes(private, handler)
 
 	log.Println("⚡ User module wired up successfully.")
+}
+
+func registerCategoryModule(
+	v1 *gin.RouterGroup,
+	admin *gin.RouterGroup,
+	db *gorm.DB,
+) {
+	repo := pg_category.NewPostgresRepository(db)
+
+	service := category_service.NewCategoryService(
+		repo,
+		categorydomain.DefaultClock,
+	)
+
+	handler := httpcategory.NewHandler(service)
+
+	// Public: only list categories
+	v1.GET("/categories", handler.ListCategories)
+
+	// Admin: get by ID and manage categories
+	httpcategory.RegisterProtectedRoutes(admin, handler)
+	admin.GET("/categories/:id", handler.GetCategoryByID)
+
+	log.Println("⚡ Category module wired up successfully.")
 }

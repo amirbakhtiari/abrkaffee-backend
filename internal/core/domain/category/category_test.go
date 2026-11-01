@@ -3,8 +3,8 @@ package category
 import (
 	"errors"
 	"testing"
-	"time"
 	"strings"
+	"time"
 )
 
 func fixedClock() Clock {
@@ -28,14 +28,14 @@ func TestNewCategoryNormalizesSlug(t *testing.T) {
 
 func TestNewCategoryRejectsInvalidFields(t *testing.T) {
 	tests := []struct {
-		name     string
+		name         string
 		categoryName string
 		slug     string
 		priority int
 		wantErr  error
 	}{
 		{name: "empty name", categoryName: " ", slug: "valid", wantErr: ErrCategoryNameEmpty},
-		{name: "long name", categoryName: string(make([]byte, MaxCategoryNameLength+1)), slug: "valid", wantErr: ErrCategoryNameTooLong},
+		{name: "long name", categoryName: strings.Repeat("ا", MaxCategoryNameLength+1), slug: "valid", wantErr: ErrCategoryNameTooLong},
 		{name: "invalid slug", categoryName: "Drinks", slug: "not valid", wantErr: ErrCategorySlugInvalid},
 		{name: "negative priority", categoryName: "Drinks", slug: "drinks", priority: -1, wantErr: ErrCategoryPriorityInvalid},
 	}

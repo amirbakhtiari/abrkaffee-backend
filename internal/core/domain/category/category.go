@@ -142,7 +142,7 @@ func validateFields(name, slug string, priority int) error {
 	if name == "" {
 		return ErrCategoryNameEmpty
 	}
-	if len(name) > MaxCategoryNameLength {
+	if utf8.RuneCountInString(name) > MaxCategoryNameLength {
 		return ErrCategoryNameTooLong
 	}
 	if !slugRegex.MatchString(slug) {

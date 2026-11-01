@@ -10,4 +10,5 @@ var (
 	ErrCategoryPriorityInvalid   = errors.New("category priority cannot be negative")
 	ErrSlugCategoryAlreadyExists = errors.New("slug وارد شده تکراری هست")
 	ErrNameCategoryAlreadyExists = errors.New("نام وارد شده تکراری است")
+	ErrCategoryRequired          = errors.New("category is required")
 )

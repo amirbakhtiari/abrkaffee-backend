@@ -9,8 +9,8 @@ import (
 
 type CategoryEntity struct {
 	ID        uint64 `gorm:"primaryKey;autoIncrement"`
-	Name      string `gorm:"type:varchar(100);not null;uniqueIndex"`
-	Slug      string `gorm:"type:varchar(100);not null;uniqueIndex"`
+	Name      string `gorm:"type:varchar(100);not null;uniqueIndex:idx_categories_name,where:deleted_at IS NULL"`
+	Slug      string `gorm:"type:varchar(100);not null;uniqueIndex:idx_categories_slug,where:deleted_at IS NULL"`
 	IsActive  bool   `gorm:"default:true;not null"`
 	Priority  int    `gorm:"default:0;not null"`
 	CreatedAt time.Time

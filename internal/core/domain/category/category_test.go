@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"strings"
 )
 
 func fixedClock() Clock {

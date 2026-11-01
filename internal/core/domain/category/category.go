@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const MaxCategoryNameLength = 100
@@ -89,7 +90,7 @@ func (c *Category) Rename(name string, clock Clock) error {
 	if name == "" {
 		return ErrCategoryNameEmpty
 	}
-	if len(name) > MaxCategoryNameLength {
+	if utf8.RuneCountInString(name) > MaxCategoryNameLength {
 		return ErrCategoryNameTooLong
 	}
 

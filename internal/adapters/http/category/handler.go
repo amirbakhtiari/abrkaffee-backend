@@ -17,12 +17,15 @@ type Handler struct {
 func NewHandler(service ports.CategoryService) *Handler {
 	return &Handler{service: service}
 }
+
 func (h *Handler) CreateCategory(c *gin.Context) {
 	var req CreateRequest
-	if err := c.ShouldBind(&req); err != nil {
+
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	dto := &ports.CreateCategoryDTO{
 		Name:     req.Name,
 		Slug:     req.Slug,
@@ -32,19 +35,28 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 
 	result, err := h.service.CreateCategory(c.Request.Context(), dto)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"category": ToResponse(result)})
+
+	if result == nil {
+		h.internalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"category": ToResponse(result),
+	})
 }
+
 func (h *Handler) UpdateCategory(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid category id"})
+	id, ok := parseCategoryID(c)
+	if !ok {
 		return
 	}
 
 	var req UpdateRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -63,12 +75,17 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		return
 	}
 
+	if result == nil {
+		h.internalServerError(c)
+		return
+	}
+
 	c.JSON(http.StatusOK, ToResponse(result))
 }
+
 func (h *Handler) DeleteCategory(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid category id"})
+	id, ok := parseCategoryID(c)
+	if !ok {
 		return
 	}
 
@@ -77,57 +94,108 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "category deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"status": "category deleted successfully",
+	})
 }
+
 func (h *Handler) GetCategoryByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid category id"})
+	id, ok := parseCategoryID(c)
+	if !ok {
 		return
 	}
+
 	result, err := h.service.GetCategoryByID(c.Request.Context(), id)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"category": ToResponse(result)})
+
+	if result == nil {
+		h.internalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"category": ToResponse(result),
+	})
 }
+
 func (h *Handler) ListCategories(c *gin.Context) {
 	var query ListQuery
+
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	dto := ports.ListCategoriesDTO{
-		Skip: query.Skip,
-		Take: query.Take,
-	}
-
-	results, err := h.service.ListCategories(c.Request.Context(), dto)
-
-	responseList := make([]CategoryResponse, len(results))
-	for i, result := range results {
-		responseList[i] = ToResponse(result)
-	}
+	results, err := h.service.ListCategories(
+		c.Request.Context(),
+		ports.ListCategoriesDTO{
+			Skip: query.Skip,
+			Take: query.Take,
+		},
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		h.handleError(c, err)
 		return
+	}
+
+	responseList := make([]CategoryResponse, 0, len(results))
+
+	for _, result := range results {
+		if result == nil {
+			h.internalServerError(c)
+			return
+		}
+
+		responseList = append(responseList, ToResponse(result))
 	}
 
 	c.JSON(http.StatusOK, responseList)
 }
 
+func parseCategoryID(c *gin.Context) (uint64, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
+	if err != nil || id == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid category id",
+		})
+		return 0, false
+	}
+
+	return id, true
+}
+
 func (h *Handler) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, category.ErrCategoryNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": category.ErrCategoryNotFound.Error(),
+		})
+
 	case errors.Is(err, category.ErrCategoryNameEmpty),
 		errors.Is(err, category.ErrCategoryNameTooLong),
 		errors.Is(err, category.ErrCategorySlugInvalid),
 		errors.Is(err, category.ErrCategoryPriorityInvalid):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+
+	case errors.Is(err, category.ErrSlugCategoryAlreadyExists),
+		errors.Is(err, category.ErrNameCategoryAlreadyExists):
+		c.JSON(http.StatusConflict, gin.H{
+			"error": err.Error(),
+		})
+
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		h.internalServerError(c)
 	}
+}
+
+func (h *Handler) internalServerError(c *gin.Context) {
+	c.JSON(http.StatusInternalServerError, gin.H{
+		"error": "internal server error",
+	})
 }

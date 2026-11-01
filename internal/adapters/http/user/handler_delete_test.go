@@ -29,9 +29,9 @@ func TestDeleteUser_Success(t *testing.T) {
 		"",
 	)
 
-	if recorder.Code != http.StatusNoContent {
+	if recorder.Code != http.StatusOK {
 		t.Fatalf(
-			"expected 204, got %d: %s",
+			"expected 200, got %d: %s",
 			recorder.Code,
 			recorder.Body.String(),
 		)
@@ -41,9 +41,12 @@ func TestDeleteUser_Success(t *testing.T) {
 		t.Fatalf("expected ID 42, got %d", receivedID)
 	}
 
-	if recorder.Body.Len() != 0 {
+	if !strings.Contains(
+		recorder.Body.String(),
+		"کاربر با موفقیت حذف شد.",
+	) {
 		t.Fatalf(
-			"expected empty response body, got %q",
+			"expected success message, got: %s",
 			recorder.Body.String(),
 		)
 	}
@@ -63,8 +66,9 @@ func TestDeleteUser_InvalidID(t *testing.T) {
 
 			if recorder.Code != http.StatusBadRequest {
 				t.Fatalf(
-					"expected 400, got %d",
+					"expected 400, got %d: %s",
 					recorder.Code,
+					recorder.Body.String(),
 				)
 			}
 		})
@@ -88,12 +92,19 @@ func TestDeleteUser_NotFound(t *testing.T) {
 	)
 
 	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", recorder.Code)
+		t.Fatalf(
+			"expected 404, got %d: %s",
+			recorder.Code,
+			recorder.Body.String(),
+		)
 	}
 
-	if !strings.Contains(recorder.Body.String(), "user not found") {
+	if !strings.Contains(
+		recorder.Body.String(),
+		"کاربر موردنظر پیدا نشد.",
+	) {
 		t.Fatalf(
-			"unexpected response: %s",
+			"expected not-found message, got: %s",
 			recorder.Body.String(),
 		)
 	}
@@ -116,7 +127,11 @@ func TestDeleteUser_InvalidDomainID(t *testing.T) {
 	)
 
 	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", recorder.Code)
+		t.Fatalf(
+			"expected 400, got %d: %s",
+			recorder.Code,
+			recorder.Body.String(),
+		)
 	}
 }
 
@@ -146,7 +161,17 @@ func TestDeleteUser_HasAccount(t *testing.T) {
 
 	if !strings.Contains(
 		recorder.Body.String(),
-		"deactivate",
+		"امکان حذف آن وجود ندارد",
+	) {
+		t.Fatalf(
+			"expected account restriction message, got: %s",
+			recorder.Body.String(),
+		)
+	}
+
+	if !strings.Contains(
+		recorder.Body.String(),
+		"غیرفعال کنید",
 	) {
 		t.Fatalf(
 			"expected deactivate guidance, got: %s",
@@ -173,8 +198,19 @@ func TestDeleteUser_ServiceError(t *testing.T) {
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf(
-			"expected 500, got %d",
+			"expected 500, got %d: %s",
 			recorder.Code,
+			recorder.Body.String(),
+		)
+	}
+
+	if !strings.Contains(
+		recorder.Body.String(),
+		"خطایی هنگام حذف کاربر رخ داد.",
+	) {
+		t.Fatalf(
+			"expected internal error message, got: %s",
+			recorder.Body.String(),
 		)
 	}
 }

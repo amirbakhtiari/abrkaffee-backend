@@ -71,6 +71,12 @@ func (r *pgRepository) List(ctx context.Context, query ports.ProductListQuery) (
 	if query.IsActive != nil {
 		db = db.Where("is_active = ?", *query.IsActive)
 	}
+	if query.CategoryID != 0 {
+		db = db.Where(
+			"EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id AND pc.category_id = ?)",
+			query.CategoryID,
+		)
+	}
 
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -125,14 +131,16 @@ func (r *pgRepository) Update(ctx context.Context, item *product.Product) (*prod
 }
 
 func (r *pgRepository) Delete(ctx context.Context, id uint64) error {
-	result := r.db.WithContext(ctx).Delete(&ProductEntity{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return product.ErrProductNotFound
-	}
-	return nil
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Delete(&ProductEntity{}, id)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return product.ErrProductNotFound
+		}
+		return tx.Where("product_id = ?", id).Delete(&ProductCategoryEntity{}).Error
+	})
 }
 
 func replaceCategories(tx *gorm.DB, productID uint64, categoryIDs []uint64) error {

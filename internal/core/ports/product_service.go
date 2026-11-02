@@ -39,10 +39,11 @@ type ProductResponse struct {
 }
 
 type ListProductsDTO struct {
-	Page     int
-	PageSize int
-	Search   string
-	IsActive *bool
+	Page       int
+	PageSize   int
+	Search     string
+	IsActive   *bool
+	CategoryID uint64
 }
 
 type ProductService interface {

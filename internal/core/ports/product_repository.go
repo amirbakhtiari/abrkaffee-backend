@@ -7,10 +7,11 @@ import (
 )
 
 type ProductListQuery struct {
-	Page     int
-	PageSize int
-	Search   string
-	IsActive *bool
+	Page       int
+	PageSize   int
+	Search     string
+	IsActive   *bool
+	CategoryID uint64
 }
 
 type ProductRepository interface {

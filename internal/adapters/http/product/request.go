@@ -21,8 +21,9 @@ type UpdateRequest struct {
 }
 
 type ListQuery struct {
-	Page     int    `form:"page,default=1" binding:"min=1"`
-	PageSize int    `form:"page_size,default=10" binding:"min=1,max=100"`
-	Search   string `form:"search"`
-	IsActive *bool  `form:"is_active"`
+	Page       int    `form:"page,default=1" binding:"min=1"`
+	PageSize   int    `form:"page_size,default=10" binding:"min=1,max=100"`
+	Search     string `form:"search"`
+	IsActive   *bool  `form:"is_active"`
+	CategoryID uint64 `form:"category_id"`
 }

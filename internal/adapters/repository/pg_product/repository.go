@@ -3,7 +3,6 @@ package pg_product
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
@@ -183,5 +182,3 @@ func translateError(err error) error {
 	}
 	return err
 }
-
-var _ = fmt.Sprintf

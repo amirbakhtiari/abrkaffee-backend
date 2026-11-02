@@ -111,7 +111,8 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	}
 
 	results, total, err := h.service.ListProducts(c.Request.Context(), ports.ListProductsDTO{
-		Page: query.Page, PageSize: query.PageSize, Search: query.Search, IsActive: query.IsActive,
+		Page: query.Page, PageSize: query.PageSize, Search: query.Search,
+		IsActive: query.IsActive, CategoryID: query.CategoryID,
 	})
 	if err != nil {
 		h.handleError(c, err)
@@ -161,7 +162,8 @@ func (h *Handler) ListPublicProducts(c *gin.Context) {
 
 	active := true
 	results, total, err := h.service.ListProducts(c.Request.Context(), ports.ListProductsDTO{
-		Page: query.Page, PageSize: query.PageSize, Search: query.Search, IsActive: &active,
+		Page: query.Page, PageSize: query.PageSize, Search: query.Search,
+		IsActive: &active, CategoryID: query.CategoryID,
 	})
 	if err != nil {
 		h.handleError(c, err)

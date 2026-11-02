@@ -1,6 +1,8 @@
 package product
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports"
@@ -18,7 +20,13 @@ func TestPublicResponseDoesNotExposeInternalIdentifiers(t *testing.T) {
 	if response.Code != "AM-01" {
 		t.Fatalf("public code = %q, want AM-01", response.Code)
 	}
-	if response.Name != "Americano" {
-		t.Fatalf("public name = %q, want Americano", response.Name)
+
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal public response: %v", err)
+	}
+	body := string(encoded)
+	if strings.Contains(body, "sku") || strings.Contains(body, "barcode") {
+		t.Fatalf("public response leaked internal fields: %s", body)
 	}
 }

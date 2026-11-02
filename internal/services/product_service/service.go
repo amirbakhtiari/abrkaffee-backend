@@ -23,11 +23,7 @@ func NewProductService(
 	categoryRepo ports.CategoryRepository,
 	clock product.Clock,
 ) ports.ProductService {
-	return &productService{
-		repo:         repo,
-		categoryRepo: categoryRepo,
-		clock:        clock,
-	}
+	return &productService{repo: repo, categoryRepo: categoryRepo, clock: clock}
 }
 
 func (s *productService) CreateProduct(ctx context.Context, req *ports.CreateProductDTO) (*ports.ProductResponse, error) {
@@ -118,7 +114,8 @@ func (s *productService) ListProducts(ctx context.Context, dto ports.ListProduct
 	dto.Search = strings.TrimSpace(dto.Search)
 
 	items, total, err := s.repo.List(ctx, ports.ProductListQuery{
-		Page: dto.Page, PageSize: dto.PageSize, Search: dto.Search, IsActive: dto.IsActive,
+		Page: dto.Page, PageSize: dto.PageSize, Search: dto.Search,
+		IsActive: dto.IsActive, CategoryID: dto.CategoryID,
 	})
 	if err != nil {
 		return nil, 0, err

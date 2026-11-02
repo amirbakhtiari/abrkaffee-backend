@@ -131,6 +131,56 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetPublicProductByID(c *gin.Context) {
+	id, ok := parseProductID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.GetProductByID(c.Request.Context(), id)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	if result == nil || !result.IsActive {
+		c.JSON(http.StatusNotFound, gin.H{"error": domain.ErrProductNotFound.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"product": ToPublicResponse(result)})
+}
+
+func (h *Handler) ListPublicProducts(c *gin.Context) {
+	var query ListQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if query.Page < 1 || query.PageSize < 1 || query.PageSize > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pagination"})
+		return
+	}
+
+	active := true
+	results, total, err := h.service.ListProducts(c.Request.Context(), ports.ListProductsDTO{
+		Page: query.Page, PageSize: query.PageSize, Search: query.Search, IsActive: &active,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	items := make([]PublicProductResponse, 0, len(results))
+	for _, result := range results {
+		if result == nil {
+			h.internalServerError(c)
+			return
+		}
+		items = append(items, ToPublicResponse(result))
+	}
+	c.JSON(http.StatusOK, PublicListResponse{
+		Items: items, Total: total, Page: query.Page, PageSize: query.PageSize,
+	})
+}
+
 func parseProductID(c *gin.Context) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil || id == 0 {

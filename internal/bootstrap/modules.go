@@ -7,16 +7,20 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/auth_handler"
 	httpcategory "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/category"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/middleware"
+	httpproduct "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product"
 	httpattr "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_attribute"
 	httpuser "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	categorydomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/category"
+	productdomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_attribute_service"
+	"github.com/amirbakhtiari/abrcoffee/internal/services/product_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/user_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/shared/clock"
 	"github.com/gin-gonic/gin"
@@ -45,6 +49,7 @@ func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	registerAttributeModule(admin, db)
 	registerUserModule(admin, db)
 	registerCategoryModule(v1, admin, db)
+	registerProductModule(v1, admin, db)
 }
 
 func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
@@ -114,4 +119,26 @@ func registerCategoryModule(
 	admin.GET("/categories/:id", handler.GetCategoryByID)
 
 	log.Println("⚡ Category module wired up successfully.")
+}
+
+func registerProductModule(
+	v1 *gin.RouterGroup,
+	admin *gin.RouterGroup,
+	db *gorm.DB,
+) {
+	productRepo := pg_product.NewPostgresRepository(db)
+	categoryRepo := pg_category.NewPostgresRepository(db)
+
+	service := product_service.NewProductService(
+		productRepo,
+		categoryRepo,
+		productdomain.DefaultClock,
+	)
+
+	handler := httpproduct.NewHandler(service)
+
+	httpproduct.RegisterPublicRoutes(v1, handler)
+	httpproduct.RegisterProtectedRoutes(admin, handler)
+
+	log.Println("⚡ Product module wired up successfully.")
 }

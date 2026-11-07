@@ -63,8 +63,9 @@ func (r *pgRepository) List(ctx context.Context, query ports.ProductListQuery) (
 	db := r.db.WithContext(ctx).Model(&ProductEntity{})
 	if query.Search != "" {
 		pattern := "%" + strings.TrimSpace(query.Search) + "%"
+		// پرانتز اضافه شد تا اولویت OR با AND های بعدی تداخل نکند
 		db = db.Where(
-			"name ILIKE ? OR code ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?",
+			"(name ILIKE ? OR code ILIKE ? OR sku ILIKE ? OR barcode ILIKE ?)",
 			pattern, pattern, pattern, pattern,
 		)
 	}
@@ -81,9 +82,20 @@ func (r *pgRepository) List(ctx context.Context, query ports.ProductListQuery) (
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
+
+	// گارد دفاعی برای پیجینیشن
+	page := query.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
 	if err := db.Order("created_at DESC, id DESC").
-		Limit(query.PageSize).
-		Offset((query.Page - 1) * query.PageSize).
+		Limit(pageSize).
+		Offset((page - 1) * pageSize).
 		Find(&entities).Error; err != nil {
 		return nil, 0, err
 	}

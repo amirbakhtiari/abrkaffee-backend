@@ -9,13 +9,13 @@ import (
 )
 
 type ProductEntity struct {
-	ID          uint64         `gorm:"primaryKey;autoIncrement"`
-	Name        string         `gorm:"type:varchar(255);not null"`
-	Code        string         `gorm:"type:varchar(64);not null;uniqueIndex:idx_products_code,where:deleted_at IS NULL"`
-	SKU         string         `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_sku,where:deleted_at IS NULL AND sku <> ''"`
-	Barcode     string         `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_barcode,where:deleted_at IS NULL AND barcode <> ''"`
-	Description string         `gorm:"type:text;not null;default:''"`
-	IsActive    bool           `gorm:"default:true;not null;index"`
+	ID          uint64 `gorm:"primaryKey;autoIncrement"`
+	Name        string `gorm:"type:varchar(255);not null"`
+	Code        string `gorm:"type:varchar(64);not null;uniqueIndex:idx_products_code,where:deleted_at IS NULL"`
+	SKU         string `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_sku,where:deleted_at IS NULL AND sku <> ''"`
+	Barcode     string `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_barcode,where:deleted_at IS NULL AND barcode <> ''"`
+	Description string `gorm:"type:text;not null;default:''"`
+	IsActive    bool   `gorm:"not null;index"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
@@ -27,7 +27,7 @@ type ProductCategoryEntity struct {
 	ProductID  uint64 `gorm:"primaryKey;autoIncrement:false;not null"`
 	CategoryID uint64 `gorm:"primaryKey;autoIncrement:false;not null;index:idx_product_categories_category_id"`
 	CreatedAt  time.Time
-	Product    ProductEntity             `gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
+	Product    ProductEntity              `gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
 	Category   pg_category.CategoryEntity `gorm:"foreignKey:CategoryID;references:ID;constraint:OnDelete:CASCADE"`
 }
 

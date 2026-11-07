@@ -829,3 +829,107 @@ func TestRepositoryUniqueConstraints_ReuseAfterSoftDelete(t *testing.T) {
 		t.Errorf("expected new unique ID for reused product, got %d", reused.ID())
 	}
 }
+func TestRepositoryUpdateStatus(t *testing.T) {
+	repo, db, prefix := setupProductRepositoryTest(t)
+	ctx := context.Background()
+
+	item := newTestProduct(t, prefix, nil)
+
+	created, err := repo.Create(ctx, item)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	updatedAt := time.Date(2026, time.November, 7, 10, 30, 0, 0, time.UTC)
+
+	// غیرفعال‌کردن محصول
+	err = repo.UpdateStatus(ctx, created.ID(), false, updatedAt)
+	if err != nil {
+		t.Fatalf("UpdateStatus(false) error = %v", err)
+	}
+
+	var entity ProductEntity
+	if err := db.First(&entity, created.ID()).Error; err != nil {
+		t.Fatalf("load product after deactivation: %v", err)
+	}
+
+	if entity.IsActive {
+		t.Error("IsActive = true, want false")
+	}
+
+	if !entity.UpdatedAt.Equal(updatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v", entity.UpdatedAt, updatedAt)
+	}
+
+	// فعال‌کردن مجدد محصول
+	nextUpdatedAt := updatedAt.Add(time.Minute)
+
+	err = repo.UpdateStatus(ctx, created.ID(), true, nextUpdatedAt)
+	if err != nil {
+		t.Fatalf("UpdateStatus(true) error = %v", err)
+	}
+
+	if err := db.First(&entity, created.ID()).Error; err != nil {
+		t.Fatalf("load product after activation: %v", err)
+	}
+
+	if !entity.IsActive {
+		t.Error("IsActive = false, want true")
+	}
+
+	if !entity.UpdatedAt.Equal(nextUpdatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v", entity.UpdatedAt, nextUpdatedAt)
+	}
+}
+
+func TestRepositoryUpdateStatusNotFound(t *testing.T) {
+	repo, _, _ := setupProductRepositoryTest(t)
+
+	err := repo.UpdateStatus(
+		context.Background(),
+		999999999,
+		false,
+		time.Now(),
+	)
+
+	if !errors.Is(err, product.ErrProductNotFound) {
+		t.Errorf(
+			"UpdateStatus() error = %v, want ErrProductNotFound",
+			err,
+		)
+	}
+}
+
+func TestRepositoryUpdateStatusSoftDeleted(t *testing.T) {
+	repo, db, prefix := setupProductRepositoryTest(t)
+	ctx := context.Background()
+
+	item := newTestProduct(t, prefix, nil)
+
+	created, err := repo.Create(ctx, item)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := repo.Delete(ctx, created.ID()); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+
+	err = repo.UpdateStatus(ctx, created.ID(), false, time.Now())
+	if !errors.Is(err, product.ErrProductNotFound) {
+		t.Errorf(
+			"UpdateStatus() on soft-deleted product error = %v, want ErrProductNotFound",
+			err,
+		)
+	}
+
+	// بررسی اینکه وضعیت رکورد حذف‌شده تغییر نکرده است.
+	var entity ProductEntity
+	if err := db.Unscoped().First(&entity, created.ID()).Error; err != nil {
+		t.Fatalf("load soft-deleted product: %v", err)
+	}
+
+	if !entity.IsActive {
+		t.Error("soft-deleted product IsActive changed; want true")
+	}
+}

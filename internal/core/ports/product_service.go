@@ -52,4 +52,5 @@ type ProductService interface {
 	DeleteProduct(ctx context.Context, id uint64) error
 	GetProductByID(ctx context.Context, id uint64) (*ProductResponse, error)
 	ListProducts(ctx context.Context, dto ListProductsDTO) ([]*ProductResponse, int64, error)
+	UpdateProductStatus(ctx context.Context, id uint64, isActive bool) error
 }

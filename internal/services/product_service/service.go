@@ -160,3 +160,14 @@ func toServiceResponse(item *product.Product) *ports.ProductResponse {
 		CategoryIDs: item.CategoryIDs(), CreatedAt: item.CreatedAt(), UpdatedAt: item.UpdatedAt(),
 	}
 }
+func (s *productService) UpdateProductStatus(
+	ctx context.Context,
+	id uint64,
+	isActive bool,
+) error {
+	if id == 0 {
+		return product.ErrProductNotFound
+	}
+
+	return s.repo.UpdateStatus(ctx, id, isActive, s.clock())
+}

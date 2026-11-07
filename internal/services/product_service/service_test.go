@@ -40,6 +40,12 @@ func (r *fakeCategoryRepository) Delete(context.Context, uint64) error {
 
 type fakeProductRepository struct {
 	item *product.Product
+
+	statusID        uint64
+	statusIsActive  bool
+	statusUpdatedAt time.Time
+	statusErr       error
+	statusCalls     int
 }
 
 func (r *fakeProductRepository) Create(_ context.Context, item *product.Product) (*product.Product, error) {
@@ -95,5 +101,74 @@ func TestCreateProductPersistsAndReturnsCategoryIDs(t *testing.T) {
 	}
 	if len(result.CategoryIDs) != 1 || result.CategoryIDs[0] != 7 {
 		t.Fatalf("CategoryIDs = %v, want [7]", result.CategoryIDs)
+	}
+}
+
+func (r *fakeProductRepository) UpdateStatus(
+	_ context.Context,
+	id uint64,
+	isActive bool,
+	updatedAt time.Time,
+) error {
+	r.statusCalls++
+	r.statusID = id
+	r.statusIsActive = isActive
+	r.statusUpdatedAt = updatedAt
+
+	return r.statusErr
+}
+
+func TestUpdateProductStatus(t *testing.T) {
+	now := time.Date(2026, time.November, 7, 10, 0, 0, 0, time.UTC)
+
+	repository := &fakeProductRepository{}
+	service := NewProductService(
+		repository,
+		&fakeCategoryRepository{},
+		func() time.Time { return now },
+	)
+
+	err := service.UpdateProductStatus(context.Background(), 42, false)
+	if err != nil {
+		t.Fatalf("UpdateProductStatus() error = %v", err)
+	}
+
+	if repository.statusCalls != 1 {
+		t.Fatalf("UpdateStatus() calls = %d, want 1", repository.statusCalls)
+	}
+
+	if repository.statusID != 42 {
+		t.Errorf("statusID = %d, want 42", repository.statusID)
+	}
+
+	if repository.statusIsActive {
+		t.Error("statusIsActive = true, want false")
+	}
+
+	if !repository.statusUpdatedAt.Equal(now) {
+		t.Errorf(
+			"statusUpdatedAt = %v, want %v",
+			repository.statusUpdatedAt,
+			now,
+		)
+	}
+}
+
+func TestUpdateProductStatusRejectsZeroID(t *testing.T) {
+	repository := &fakeProductRepository{}
+	service := NewProductService(
+		repository,
+		&fakeCategoryRepository{},
+		time.Now,
+	)
+
+	err := service.UpdateProductStatus(context.Background(), 0, true)
+
+	if !errors.Is(err, product.ErrProductNotFound) {
+		t.Fatalf("UpdateProductStatus() error = %v, want ErrProductNotFound", err)
+	}
+
+	if repository.statusCalls != 0 {
+		t.Fatal("repository UpdateStatus() should not be called")
 	}
 }

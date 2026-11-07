@@ -70,6 +70,37 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"product": ToResponse(result)})
 }
 
+func (h *Handler) UpdateProductStatus(c *gin.Context) {
+	id, ok := parseProductID(c)
+	if !ok {
+		return
+	}
+
+	var req UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.IsActive == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "is_active is required"})
+		return
+	}
+
+	if err := h.service.UpdateProductStatus(
+		c.Request.Context(),
+		id,
+		*req.IsActive,
+	); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "product status updated successfully",
+	})
+}
+
 func (h *Handler) DeleteProduct(c *gin.Context) {
 	id, ok := parseProductID(c)
 	if !ok {

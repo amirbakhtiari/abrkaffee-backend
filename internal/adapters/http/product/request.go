@@ -27,3 +27,6 @@ type ListQuery struct {
 	IsActive   *bool  `form:"is_active"`
 	CategoryID uint64 `form:"category_id"`
 }
+type UpdateStatusRequest struct {
+	IsActive *bool `json:"is_active" binding:"required"`
+}

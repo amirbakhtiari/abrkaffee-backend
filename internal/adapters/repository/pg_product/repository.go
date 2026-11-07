@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
 	"github.com/amirbakhtiari/abrcoffee/internal/core/ports"
@@ -201,4 +202,29 @@ func translateError(err error) error {
 		}
 	}
 	return err
+}
+
+func (r *pgRepository) UpdateStatus(
+	ctx context.Context,
+	id uint64,
+	isActive bool,
+	updatedAt time.Time,
+) error {
+	result := r.db.WithContext(ctx).
+		Model(&ProductEntity{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"is_active":  isActive,
+			"updated_at": updatedAt,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return product.ErrProductNotFound
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ package product
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -325,4 +326,13 @@ func TestUpdateProductStatus_DomainErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (m *mockProductService) UpdateProductImage(
+	context.Context,
+	uint64,
+	io.Reader,
+	string,
+) error {
+	panic("unexpected call: UpdateProductImage")
 }

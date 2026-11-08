@@ -1,6 +1,7 @@
 package product
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -17,22 +18,77 @@ type Handler struct {
 func NewHandler(service ports.ProductService) *Handler {
 	return &Handler{service: service}
 }
-
 func (h *Handler) CreateProduct(c *gin.Context) {
-	var req CreateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 6<<20)
+
+	if err := c.Request.ParseMultipartForm(1 << 20); err != nil {
+		if isRequestTooLarge(err) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"error": "request body is too large",
+			})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid multipart request",
+		})
+		return
+	}
+
+	if c.Request.MultipartForm != nil {
+		defer c.Request.MultipartForm.RemoveAll()
+	}
+
+	file, header, err := c.Request.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "image is required",
+		})
+		return
+	}
+	defer file.Close()
+
+	if header.Size > 5<<20 {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+			"error": "image must not exceed 5 MB",
+		})
+		return
+	}
+
+	categoryIDs, err := parseCategoryIDs(c.PostForm("category_ids"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid category_ids",
+		})
 		return
 	}
 
 	isActive := true
-	if req.IsActive != nil {
-		isActive = *req.IsActive
+	if raw := c.PostForm("is_active"); raw != "" {
+		parsed, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid is_active",
+			})
+			return
+		}
+		isActive = parsed
 	}
-	result, err := h.service.CreateProduct(c.Request.Context(), &ports.CreateProductDTO{
-		Name: req.Name, Code: req.Code, SKU: req.SKU, Barcode: req.Barcode,
-		Description: req.Description, IsActive: isActive, CategoryIDs: req.CategoryIDs,
-	})
+
+	result, err := h.service.CreateProduct(
+		c.Request.Context(),
+		&ports.CreateProductDTO{
+			Name:        c.PostForm("name"),
+			Code:        c.PostForm("code"),
+			SKU:         c.PostForm("sku"),
+			Barcode:     c.PostForm("barcode"),
+			Description: c.PostForm("description"),
+			IsActive:    isActive,
+			CategoryIDs: categoryIDs,
+			Image:       file,
+			ImageType:   header.Header.Get("Content-Type"),
+		},
+	)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -41,7 +97,10 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		h.internalServerError(c)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"product": ToResponse(result)})
+
+	c.JSON(http.StatusCreated, gin.H{
+		"product": ToResponse(result),
+	})
 }
 
 func (h *Handler) UpdateProduct(c *gin.Context) {
@@ -240,6 +299,11 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		errors.Is(err, domain.ErrProductSKUAlreadyExists),
 		errors.Is(err, domain.ErrProductBarcodeAlreadyExists):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, domain.ErrProductImageRequired),
+		errors.Is(err, ports.ErrUnsupportedFileType):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, ports.ErrFileTooLarge):
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": err.Error()})
 	default:
 		h.internalServerError(c)
 	}
@@ -247,4 +311,79 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 
 func (h *Handler) internalServerError(c *gin.Context) {
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+}
+
+func parseCategoryIDs(raw string) ([]uint64, error) {
+	if raw == "" {
+		return nil, nil
+	}
+
+	var ids []uint64
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+func isRequestTooLarge(err error) bool {
+	var maxBytesErr *http.MaxBytesError
+	return errors.As(err, &maxBytesErr)
+}
+
+func (h *Handler) UpdateProductImage(c *gin.Context) {
+	id, ok := parseProductID(c)
+	if !ok {
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 6<<20)
+
+	if err := c.Request.ParseMultipartForm(1 << 20); err != nil {
+		if isRequestTooLarge(err) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"error": "request body is too large",
+			})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid multipart request",
+		})
+		return
+	}
+
+	if c.Request.MultipartForm != nil {
+		defer c.Request.MultipartForm.RemoveAll()
+	}
+
+	file, header, err := c.Request.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "image is required",
+		})
+		return
+	}
+	defer file.Close()
+
+	if header.Size > 5<<20 {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+			"error": "image must not exceed 5 MB",
+		})
+		return
+	}
+
+	if err := h.service.UpdateProductImage(
+		c.Request.Context(),
+		id,
+		file,
+		header.Header.Get("Content-Type"),
+	); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "product image updated successfully",
+	})
 }

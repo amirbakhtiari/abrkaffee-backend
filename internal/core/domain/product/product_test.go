@@ -14,8 +14,15 @@ func testClock() Clock {
 
 func TestNewProductNormalizesFieldsAndCategoryIDs(t *testing.T) {
 	item, err := NewProduct(
-		"  Americano  ", "  AM-01 ", "  SKU-01 ", " 123456 ",
-		"  Hot coffee  ", true, []uint64{3, 1, 3, 0}, testClock(),
+		"Americano",
+		"AM-01",
+		"SKU-01",
+		"123456",
+		"",
+		"products/test.webp",
+		true,
+		[]uint64{7},
+		testClock(),
 	)
 	if err != nil {
 		t.Fatalf("NewProduct() error = %v", err)
@@ -24,8 +31,12 @@ func TestNewProductNormalizesFieldsAndCategoryIDs(t *testing.T) {
 	if item.Name() != "Americano" || item.Code() != "AM-01" {
 		t.Fatalf("unexpected normalized product: name=%q code=%q", item.Name(), item.Code())
 	}
-	if item.SKU() != "SKU-01" || item.Barcode() != "123456" {
-		t.Fatalf("SKU or barcode was not normalized")
+	if item.SKU() != "SKU-01" || item.Barcode() != "" {
+		t.Fatalf(
+			"SKU or barcode was not normalized: sku=%q barcode=%q",
+			item.SKU(),
+			item.Barcode(),
+		)
 	}
 	if got := item.CategoryIDs(); len(got) != 2 || got[0] != 3 || got[1] != 1 {
 		t.Fatalf("CategoryIDs() = %v, want [3 1]", got)
@@ -33,12 +44,12 @@ func TestNewProductNormalizesFieldsAndCategoryIDs(t *testing.T) {
 }
 
 func TestNewProductRejectsInvalidRequiredFields(t *testing.T) {
-	_, err := NewProduct(" ", "P-1", "", "", "", true, nil, testClock())
+	_, err := NewProduct(" ", "P-1", "", "", "", "products/test.webp", true, nil, testClock())
 	if !errors.Is(err, ErrProductNameRequired) {
 		t.Fatalf("NewProduct() error = %v, want ErrProductNameRequired", err)
 	}
 
-	_, err = NewProduct("Coffee", " ", "", "", "", true, nil, testClock())
+	_, err = NewProduct("Coffee", " ", "", "", "", "products/test.webp", true, nil, testClock())
 	if !errors.Is(err, ErrProductCodeRequired) {
 		t.Fatalf("NewProduct() error = %v, want ErrProductCodeRequired", err)
 	}
@@ -47,7 +58,7 @@ func TestNewProductRejectsInvalidRequiredFields(t *testing.T) {
 func TestNewProductRejectsOverlongOptionalFields(t *testing.T) {
 	_, err := NewProduct(
 		"Coffee", "P-1", strings.Repeat("s", MaxProductSKULength+1),
-		"", "", true, nil, testClock(),
+		"", "", "products/test.webp", true, nil, testClock(),
 	)
 	if !errors.Is(err, ErrProductSKUTooLong) {
 		t.Fatalf("NewProduct() error = %v, want ErrProductSKUTooLong", err)
@@ -55,7 +66,7 @@ func TestNewProductRejectsOverlongOptionalFields(t *testing.T) {
 
 	_, err = NewProduct(
 		"Coffee", "P-1", "", strings.Repeat("1", MaxProductBarcodeLength+1),
-		"", true, nil, testClock(),
+		"", "products/test.webp", true, nil, testClock(),
 	)
 	if !errors.Is(err, ErrProductBarcodeTooLong) {
 		t.Fatalf("NewProduct() error = %v, want ErrProductBarcodeTooLong", err)
@@ -63,7 +74,7 @@ func TestNewProductRejectsOverlongOptionalFields(t *testing.T) {
 }
 
 func TestEditAndStatusChanges(t *testing.T) {
-	item, err := NewProduct("Coffee", "P-1", "", "", "", true, []uint64{1}, testClock())
+	item, err := NewProduct("Coffee", "P-1", "", "", "", "products/test.webp", true, []uint64{1}, testClock())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +98,7 @@ func TestEditAndStatusChanges(t *testing.T) {
 }
 
 func TestCategoryIDsReturnsCopy(t *testing.T) {
-	item, err := NewProduct("Coffee", "P-1", "", "", "", true, []uint64{1}, testClock())
+	item, err := NewProduct("Coffee", "P-1", "", "", "", "products/test.webp", true, []uint64{1}, testClock())
 	if err != nil {
 		t.Fatal(err)
 	}

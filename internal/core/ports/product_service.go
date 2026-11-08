@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -13,6 +14,9 @@ type CreateProductDTO struct {
 	Description string
 	IsActive    bool
 	CategoryIDs []uint64
+
+	Image     io.Reader
+	ImageType string
 }
 
 type UpdateProductDTO struct {
@@ -34,6 +38,7 @@ type ProductResponse struct {
 	Description string
 	IsActive    bool
 	CategoryIDs []uint64
+	ImageURL    string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -47,10 +52,39 @@ type ListProductsDTO struct {
 }
 
 type ProductService interface {
-	CreateProduct(ctx context.Context, req *CreateProductDTO) (*ProductResponse, error)
-	UpdateProduct(ctx context.Context, id uint64, req *UpdateProductDTO) (*ProductResponse, error)
+	CreateProduct(
+		ctx context.Context,
+		req *CreateProductDTO,
+	) (*ProductResponse, error)
+
+	UpdateProduct(
+		ctx context.Context,
+		id uint64,
+		req *UpdateProductDTO,
+	) (*ProductResponse, error)
+
 	DeleteProduct(ctx context.Context, id uint64) error
-	GetProductByID(ctx context.Context, id uint64) (*ProductResponse, error)
-	ListProducts(ctx context.Context, dto ListProductsDTO) ([]*ProductResponse, int64, error)
-	UpdateProductStatus(ctx context.Context, id uint64, isActive bool) error
+
+	GetProductByID(
+		ctx context.Context,
+		id uint64,
+	) (*ProductResponse, error)
+
+	ListProducts(
+		ctx context.Context,
+		dto ListProductsDTO,
+	) ([]*ProductResponse, int64, error)
+
+	UpdateProductStatus(
+		ctx context.Context,
+		id uint64,
+		isActive bool,
+	) error
+
+	UpdateProductImage(
+		ctx context.Context,
+		id uint64,
+		file io.Reader,
+		contentType string,
+	) error
 }

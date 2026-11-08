@@ -3,6 +3,8 @@ package product_service
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,6 +50,20 @@ type fakeProductRepository struct {
 	statusCalls     int
 }
 
+func (r *fakeProductRepository) UpdateImage(
+	_ context.Context,
+	id uint64,
+	imageKey string,
+	updatedAt time.Time,
+) error {
+	if r.item == nil || r.item.ID() != id {
+		return product.ErrProductNotFound
+	}
+
+	return r.item.ChangeImage(imageKey, func() time.Time {
+		return updatedAt
+	})
+}
 func (r *fakeProductRepository) Create(_ context.Context, item *product.Product) (*product.Product, error) {
 	r.item = item
 	return item, nil
@@ -69,10 +85,21 @@ func TestCreateProductValidatesCategoryReferences(t *testing.T) {
 	cat := category.ReconstructCategory(7, "Drinks", "drinks", 0, true, now, now)
 	categories := &fakeCategoryRepository{ids: map[uint64]*category.Category{7: cat}}
 	repository := &fakeProductRepository{}
-	service := NewProductService(repository, categories, func() time.Time { return now })
+	storage := &fakeFileStorage{key: "products/test.webp"}
+
+	service := NewProductService(
+		repository,
+		categories,
+		storage,
+		func() time.Time { return now },
+	)
 
 	_, err := service.CreateProduct(context.Background(), &ports.CreateProductDTO{
-		Name: "Americano", Code: "AM-01", CategoryIDs: []uint64{7, 999},
+		Name:        "Americano",
+		Code:        "AM-01",
+		CategoryIDs: []uint64{7, 999},
+		Image:       strings.NewReader("test image"),
+		ImageType:   "image/webp",
 	})
 	if !errors.Is(err, product.ErrProductCategoryInvalid) {
 		t.Fatalf("CreateProduct() error = %v, want ErrProductCategoryInvalid", err)
@@ -87,12 +114,24 @@ func TestCreateProductPersistsAndReturnsCategoryIDs(t *testing.T) {
 	cat := category.ReconstructCategory(7, "Drinks", "drinks", 0, true, now, now)
 	categories := &fakeCategoryRepository{ids: map[uint64]*category.Category{7: cat}}
 	repository := &fakeProductRepository{}
-	service := NewProductService(repository, categories, func() time.Time { return now })
+	storage := &fakeFileStorage{key: "products/test.webp"}
+
+	service := NewProductService(
+		repository,
+		categories,
+		storage,
+		func() time.Time { return now },
+	)
 
 	result, err := service.CreateProduct(context.Background(), &ports.CreateProductDTO{
-		Name: "Americano", Code: "AM-01", SKU: "SKU-01",
+		Name:        "Americano",
+		Code:        "AM-01",
+		SKU:         "SKU-01",
 		CategoryIDs: []uint64{7, 7},
+		Image:       strings.NewReader("test image"),
+		ImageType:   "image/webp",
 	})
+
 	if err != nil {
 		t.Fatalf("CreateProduct() error = %v", err)
 	}
@@ -120,11 +159,11 @@ func (r *fakeProductRepository) UpdateStatus(
 
 func TestUpdateProductStatus(t *testing.T) {
 	now := time.Date(2026, time.November, 7, 10, 0, 0, 0, time.UTC)
-
 	repository := &fakeProductRepository{}
 	service := NewProductService(
 		repository,
 		&fakeCategoryRepository{},
+		&fakeFileStorage{key: "products/test.webp"},
 		func() time.Time { return now },
 	)
 
@@ -155,11 +194,17 @@ func TestUpdateProductStatus(t *testing.T) {
 }
 
 func TestUpdateProductStatusRejectsZeroID(t *testing.T) {
+	now := time.Date(2026, time.November, 7, 10, 0, 0, 0, time.UTC)
+
 	repository := &fakeProductRepository{}
+	storage := &fakeFileStorage{key: "products/test.webp"}
+	categories := &fakeCategoryRepository{}
+
 	service := NewProductService(
 		repository,
-		&fakeCategoryRepository{},
-		time.Now,
+		categories,
+		storage,
+		func() time.Time { return now },
 	)
 
 	err := service.UpdateProductStatus(context.Background(), 0, true)
@@ -171,4 +216,33 @@ func TestUpdateProductStatusRejectsZeroID(t *testing.T) {
 	if repository.statusCalls != 0 {
 		t.Fatal("repository UpdateStatus() should not be called")
 	}
+}
+
+type fakeFileStorage struct {
+	key        string
+	saveErr    error
+	deleteErr  error
+	saveCalls  int
+	deleteKeys []string
+}
+
+func (s *fakeFileStorage) Save(
+	_ context.Context,
+	_ io.Reader,
+	_ string,
+) (string, error) {
+	s.saveCalls++
+	if s.saveErr != nil {
+		return "", s.saveErr
+	}
+
+	return s.key, nil
+}
+
+func (s *fakeFileStorage) Delete(
+	_ context.Context,
+	key string,
+) error {
+	s.deleteKeys = append(s.deleteKeys, key)
+	return s.deleteErr
 }

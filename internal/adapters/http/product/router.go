@@ -16,4 +16,5 @@ func RegisterProtectedRoutes(router *gin.RouterGroup, handler *Handler) {
 	products.PUT("/:id", handler.UpdateProduct)
 	products.PATCH("/:id/status", handler.UpdateProductStatus)
 	products.DELETE("/:id", handler.DeleteProduct)
+	products.PUT("/:id/image", handler.UpdateProductImage)
 }

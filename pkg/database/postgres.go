@@ -10,6 +10,7 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_pricing"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"gorm.io/driver/postgres"
@@ -39,6 +40,8 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 		&pg_product.ProductCategoryEntity{},
 		&pg_attribute.ProductAttributeModel{},
 		&pg_attribute.ProductAttributeValueModel{},
+		&pg_pricing.PriceAnnouncementEntity{},
+		&pg_pricing.PriceAnnouncementItemEntity{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate database: %w", err)
 	}

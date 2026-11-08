@@ -15,6 +15,7 @@ type ProductEntity struct {
 	SKU         string `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_sku,where:deleted_at IS NULL AND sku <> ''"`
 	Barcode     string `gorm:"type:varchar(100);not null;default:'';uniqueIndex:idx_products_barcode,where:deleted_at IS NULL AND barcode <> ''"`
 	Description string `gorm:"type:text;not null;default:''"`
+	ImageKey    string `gorm:"type:varchar(255);not null;default:''"`
 	IsActive    bool   `gorm:"not null;index"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -35,15 +36,26 @@ func (ProductCategoryEntity) TableName() string { return "product_categories" }
 
 func (e *ProductEntity) ToDomain(categoryIDs []uint64) *product.Product {
 	return product.ReconstructProduct(
-		e.ID, e.Name, e.Code, e.SKU, e.Barcode, e.Description,
-		e.IsActive, categoryIDs, e.CreatedAt, e.UpdatedAt,
+		e.ID,
+		e.Name,
+		e.Code,
+		e.SKU,
+		e.Barcode,
+		e.Description,
+		e.ImageKey,
+		e.IsActive,
+		categoryIDs,
+		e.CreatedAt,
+		e.UpdatedAt,
 	)
 }
 
 func FromDomain(item *product.Product) *ProductEntity {
 	return &ProductEntity{
 		ID: item.ID(), Name: item.Name(), Code: item.Code(), SKU: item.SKU(),
-		Barcode: item.Barcode(), Description: item.Description(),
-		IsActive: item.IsActive(), CreatedAt: item.CreatedAt(), UpdatedAt: item.UpdatedAt(),
+		Barcode:     item.Barcode(),
+		Description: item.Description(),
+		ImageKey:    item.ImageKey(),
+		IsActive:    item.IsActive(), CreatedAt: item.CreatedAt(), UpdatedAt: item.UpdatedAt(),
 	}
 }

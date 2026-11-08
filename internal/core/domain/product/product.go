@@ -25,6 +25,7 @@ type Product struct {
 	sku         string
 	barcode     string
 	description string
+	imageKey    string
 	isActive    bool
 	categoryIDs []uint64
 	createdAt   time.Time
@@ -33,6 +34,7 @@ type Product struct {
 
 func NewProduct(
 	name, code, sku, barcode, description string,
+	imageKey string,
 	isActive bool,
 	categoryIDs []uint64,
 	clock Clock,
@@ -47,6 +49,11 @@ func NewProduct(
 		return nil, err
 	}
 
+	imageKey = strings.TrimSpace(imageKey)
+	if imageKey == "" {
+		return nil, ErrProductImageRequired
+	}
+
 	now := clock()
 	return &Product{
 		name:        name,
@@ -55,6 +62,7 @@ func NewProduct(
 		barcode:     barcode,
 		description: description,
 		isActive:    isActive,
+		imageKey:    imageKey,
 		categoryIDs: normalizeCategoryIDs(categoryIDs),
 		createdAt:   now,
 		updatedAt:   now,
@@ -63,7 +71,7 @@ func NewProduct(
 
 func ReconstructProduct(
 	id uint64,
-	name, code, sku, barcode, description string,
+	name, code, sku, barcode, description, imageKey string,
 	isActive bool,
 	categoryIDs []uint64,
 	createdAt, updatedAt time.Time,
@@ -75,6 +83,7 @@ func ReconstructProduct(
 		sku:         sku,
 		barcode:     barcode,
 		description: description,
+		imageKey:    imageKey,
 		isActive:    isActive,
 		categoryIDs: normalizeCategoryIDs(categoryIDs),
 		createdAt:   createdAt,
@@ -82,15 +91,18 @@ func ReconstructProduct(
 	}
 }
 
-func (p *Product) ID() uint64             { return p.id }
-func (p *Product) Name() string           { return p.name }
-func (p *Product) Code() string           { return p.code }
-func (p *Product) SKU() string            { return p.sku }
-func (p *Product) Barcode() string        { return p.barcode }
-func (p *Product) Description() string    { return p.description }
-func (p *Product) IsActive() bool         { return p.isActive }
-func (p *Product) CreatedAt() time.Time   { return p.createdAt }
-func (p *Product) UpdatedAt() time.Time   { return p.updatedAt }
+func (p *Product) ID() uint64           { return p.id }
+func (p *Product) Name() string         { return p.name }
+func (p *Product) Code() string         { return p.code }
+func (p *Product) SKU() string          { return p.sku }
+func (p *Product) Barcode() string      { return p.barcode }
+func (p *Product) Description() string  { return p.description }
+func (p *Product) IsActive() bool       { return p.isActive }
+func (p *Product) CreatedAt() time.Time { return p.createdAt }
+func (p *Product) UpdatedAt() time.Time { return p.updatedAt }
+func (p *Product) ImageKey() string {
+	return p.imageKey
+}
 func (p *Product) CategoryIDs() []uint64 {
 	ids := make([]uint64, len(p.categoryIDs))
 	copy(ids, p.categoryIDs)
@@ -175,4 +187,14 @@ func normalizeCategoryIDs(ids []uint64) []uint64 {
 		result = append(result, id)
 	}
 	return result
+}
+func (p *Product) ChangeImage(imageKey string, clock Clock) error {
+	imageKey = strings.TrimSpace(imageKey)
+	if imageKey == "" {
+		return ErrProductImageRequired
+	}
+
+	p.imageKey = imageKey
+	p.updatedAt = clock()
+	return nil
 }

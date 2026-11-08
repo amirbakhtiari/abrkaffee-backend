@@ -15,6 +15,7 @@ type ProductResponse struct {
 	Description string    `json:"description"`
 	IsActive    bool      `json:"is_active"`
 	CategoryIDs []uint64  `json:"category_ids"`
+	ImageURL    string    `json:"image_url"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -25,6 +26,7 @@ type PublicProductResponse struct {
 	Code        string   `json:"code"`
 	Description string   `json:"description"`
 	CategoryIDs []uint64 `json:"category_ids"`
+	ImageURL    string   `json:"image_url"`
 }
 
 type ListResponse struct {
@@ -43,15 +45,27 @@ type PublicListResponse struct {
 
 func ToResponse(dto *ports.ProductResponse) ProductResponse {
 	return ProductResponse{
-		ID: dto.ID, Name: dto.Name, Code: dto.Code, SKU: dto.SKU,
-		Barcode: dto.Barcode, Description: dto.Description, IsActive: dto.IsActive,
-		CategoryIDs: dto.CategoryIDs, CreatedAt: dto.CreatedAt, UpdatedAt: dto.UpdatedAt,
+		ID:          dto.ID,
+		Name:        dto.Name,
+		Code:        dto.Code,
+		SKU:         dto.SKU,
+		Barcode:     dto.Barcode,
+		Description: dto.Description,
+		IsActive:    dto.IsActive,
+		CategoryIDs: dto.CategoryIDs,
+		ImageURL:    dto.ImageURL,
+		CreatedAt:   dto.CreatedAt,
+		UpdatedAt:   dto.UpdatedAt,
 	}
 }
 
 func ToPublicResponse(dto *ports.ProductResponse) PublicProductResponse {
 	return PublicProductResponse{
-		ID: dto.ID, Name: dto.Name, Code: dto.Code,
-		Description: dto.Description, CategoryIDs: dto.CategoryIDs,
+		ID:          dto.ID,
+		Name:        dto.Name,
+		Code:        dto.Code,
+		Description: dto.Description,
+		CategoryIDs: dto.CategoryIDs,
+		ImageURL:    dto.ImageURL,
 	}
 }

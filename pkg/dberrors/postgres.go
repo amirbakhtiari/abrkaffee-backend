@@ -31,3 +31,11 @@ func Translate(err error) error {
 
 	return err
 }
+
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}

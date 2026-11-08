@@ -35,7 +35,8 @@ func (r *pgRepository) Create(ctx context.Context, item *product.Product) (*prod
 	if err != nil {
 		return nil, err
 	}
-	return r.GetByID(ctx, entity.ID)
+
+	return entity.ToDomain(item.CategoryIDs()), nil
 }
 
 func (r *pgRepository) GetByID(ctx context.Context, id uint64) (*product.Product, error) {
@@ -215,6 +216,30 @@ func (r *pgRepository) UpdateStatus(
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"is_active":  isActive,
+			"updated_at": updatedAt,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return product.ErrProductNotFound
+	}
+
+	return nil
+}
+func (r *pgRepository) UpdateImage(
+	ctx context.Context,
+	id uint64,
+	imageKey string,
+	updatedAt time.Time,
+) error {
+	result := r.db.WithContext(ctx).
+		Model(&ProductEntity{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"image_key":  imageKey,
 			"updated_at": updatedAt,
 		})
 

@@ -7,18 +7,22 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/auth_handler"
 	httpcategory "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/category"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/middleware"
+	httppricing "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/pricing"
 	httpproduct "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product"
 	httpattr "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_attribute"
 	httpuser "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/user"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_pricing"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/storage/local"
 	categorydomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/category"
 	productdomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
+	"github.com/amirbakhtiari/abrcoffee/internal/services/pricing_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_attribute_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/user_service"
@@ -45,15 +49,26 @@ func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	admin := v1.Group("")
 	admin.Use(auth, middleware.RequireRole("Admin"))
 
+	// Initialize product image storage once.
+	fileStorage, err := local.NewStorage("./uploads")
+	if err != nil {
+		log.Fatalf("initialize product file storage: %v", err)
+	}
+
+	log.Printf("Product image storage initialized at: %s", fileStorage.Root())
+
+	// Serve uploaded images from the same storage directory.
+	router.Static("/uploads", fileStorage.Root())
+
 	registerAuthModule(v1, admin, db, cfg)
 	registerAttributeModule(admin, db)
 	registerUserModule(admin, db)
 	registerCategoryModule(v1, admin, db)
-	registerProductModule(v1, admin, db)
+	registerProductModule(v1, admin, db, fileStorage)
+	registerPricingModule(admin, db)
 }
 
 func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
-
 	repo := pg_attribute.NewAttributeRepository(db)
 	service := product_attribute_service.NewProductAttributeService(repo)
 	handler := httpattr.NewAttributeHandler(service)
@@ -125,6 +140,7 @@ func registerProductModule(
 	v1 *gin.RouterGroup,
 	admin *gin.RouterGroup,
 	db *gorm.DB,
+	fileStorage *local.Storage,
 ) {
 	productRepo := pg_product.NewPostgresRepository(db)
 	categoryRepo := pg_category.NewPostgresRepository(db)
@@ -132,6 +148,7 @@ func registerProductModule(
 	service := product_service.NewProductService(
 		productRepo,
 		categoryRepo,
+		fileStorage,
 		productdomain.DefaultClock,
 	)
 
@@ -141,4 +158,14 @@ func registerProductModule(
 	httpproduct.RegisterProtectedRoutes(admin, handler)
 
 	log.Println("⚡ Product module wired up successfully.")
+}
+
+func registerPricingModule(admin *gin.RouterGroup, db *gorm.DB) {
+	repo := pg_pricing.NewPostgresRepository(db)
+	service := pricing_service.NewPricingService(repo)
+	handler := httppricing.NewHandler(service)
+
+	httppricing.RegisterProtectedRoutes(admin, handler)
+
+	log.Println("⚡ Pricing module wired up successfully.")
 }

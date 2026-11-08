@@ -22,4 +22,10 @@ type ProductRepository interface {
 	Update(ctx context.Context, product *product.Product) (*product.Product, error)
 	Delete(ctx context.Context, id uint64) error
 	UpdateStatus(ctx context.Context, id uint64, isActive bool, updatedAt time.Time) error
+	UpdateImage(
+		ctx context.Context,
+		id uint64,
+		imageKey string,
+		updatedAt time.Time,
+	) error
 }

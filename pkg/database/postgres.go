@@ -10,6 +10,7 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth/db_models"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_order"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_pricing"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
@@ -42,6 +43,11 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 		&pg_attribute.ProductAttributeValueModel{},
 		&pg_pricing.PriceAnnouncementEntity{},
 		&pg_pricing.PriceAnnouncementItemEntity{},
+		&pg_order.OrderDailySequenceEntity{},
+		&pg_order.OrderEntity{},
+		&pg_order.OrderItemEntity{},
+		&pg_order.OrderPaymentEntity{},
+		&pg_order.OrderStatusHistoryEntity{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate database: %w", err)
 	}
@@ -52,6 +58,10 @@ func NewPostgresConnection(cfg *config.Config) (*gorm.DB, error) {
 
 	// اصلاح Foreign Key موجود در دیتابیس.
 	if err := migrateAccountUserForeignKey(db); err != nil {
+		return nil, err
+	}
+
+	if err := migrateOrderTables(db); err != nil {
 		return nil, err
 	}
 

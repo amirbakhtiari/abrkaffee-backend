@@ -4,9 +4,11 @@ import (
 	"log"
 
 	"github.com/amirbakhtiari/abrcoffee/config"
+	"github.com/amirbakhtiari/abrcoffee/internal/adapters/gateways"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/auth_handler"
 	httpcategory "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/category"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/http/middleware"
+	orderhttp "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/order"
 	httppricing "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/pricing"
 	httpproduct "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product"
 	httpattr "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_attribute"
@@ -14,6 +16,7 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
+	pgorder "github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_order"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_pricing"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
@@ -22,6 +25,7 @@ import (
 	productdomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
+	ordersvc "github.com/amirbakhtiari/abrcoffee/internal/services/order_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/pricing_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_attribute_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_service"
@@ -66,6 +70,8 @@ func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	registerCategoryModule(v1, admin, db)
 	registerProductModule(v1, admin, db, fileStorage)
 	registerPricingModule(admin, db)
+	registerOrderModule(admin, db)
+
 }
 
 func registerAttributeModule(v1 *gin.RouterGroup, db *gorm.DB) {
@@ -168,4 +174,21 @@ func registerPricingModule(admin *gin.RouterGroup, db *gorm.DB) {
 	httppricing.RegisterProtectedRoutes(admin, handler)
 
 	log.Println("⚡ Pricing module wired up successfully.")
+}
+
+func registerOrderModule(v1 *gin.RouterGroup, db *gorm.DB) {
+	productRepo := pg_product.NewPostgresRepository(db)
+	categoryRepo := pg_category.NewPostgresRepository(db)
+	pricingRepo := pg_pricing.NewPostgresRepository(db)
+
+	productCatalog := gateways.NewProductCatalogGateway(productRepo, categoryRepo)
+	pricingCatalog := gateways.NewPricingCatalogGateway(pricingRepo)
+
+	orderRepo := pgorder.NewPostgresRepository(db)
+	orderService := ordersvc.NewOrderService(orderRepo, productCatalog, pricingCatalog)
+
+	orderHandler := orderhttp.NewHandler(orderService)
+	orderhttp.RegisterRoutes(v1, orderHandler)
+
+	log.Println("⚡ Order module wired up successfully.")
 }

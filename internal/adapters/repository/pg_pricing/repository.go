@@ -3,6 +3,7 @@ package pg_pricing
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/amirbakhtiari/abrcoffee/internal/core/domain/pricing"
 	pricingports "github.com/amirbakhtiari/abrcoffee/internal/core/ports/pricing"
@@ -139,15 +140,25 @@ func (r *repository) List(ctx context.Context, filter pricingports.ListAnnouncem
 
 func (r *repository) GetActivePrice(ctx context.Context, productID uint64) (*pricingports.ActiveProductPrice, error) {
 	type result struct {
+		AnnouncementItemID uint64
+		AnnouncementID     uint64
 		Price              int64
 		AllowPriceChange   bool
 		MaxDiscountPercent float64
+		ApprovedAt         time.Time
 	}
 
 	var res result
 	err := r.db.WithContext(ctx).
 		Table("price_announcement_items as pai").
-		Select("pai.price, pai.allow_price_change, pai.max_discount_percent").
+		Select(`
+    		pai.id AS announcement_item_id,
+    		pa.id AS announcement_id,
+    		pai.price,
+    		pai.allow_price_change,
+    		pai.max_discount_percent,
+    		pa.approved_at
+		`).
 		Joins("JOIN price_announcements as pa ON pa.id = pai.announcement_id").
 		Where("pai.product_id = ?", productID).
 		Where("pa.status = ?", string(pricing.StatusApproved)).
@@ -164,9 +175,12 @@ func (r *repository) GetActivePrice(ctx context.Context, productID uint64) (*pri
 	}
 
 	return &pricingports.ActiveProductPrice{
+		AnnouncementItemID: res.AnnouncementItemID,
+		AnnouncementID:     res.AnnouncementID,
 		Price:              res.Price,
 		AllowPriceChange:   res.AllowPriceChange,
 		MaxDiscountPercent: res.MaxDiscountPercent,
+		ApprovedAt:         res.ApprovedAt,
 	}, nil
 }
 
@@ -177,15 +191,26 @@ func (r *repository) GetActivePricesByProductIDs(ctx context.Context, productIDs
 
 	type result struct {
 		ProductID          uint64
+		AnnouncementItemID uint64
+		AnnouncementID     uint64
 		Price              int64
 		AllowPriceChange   bool
 		MaxDiscountPercent float64
+		ApprovedAt         time.Time
 	}
-
 	var results []result
 	err := r.db.WithContext(ctx).
 		Table("price_announcement_items as pai").
-		Select("DISTINCT ON (pai.product_id) pai.product_id, pai.price, pai.allow_price_change, pai.max_discount_percent").
+		Select(`
+    		DISTINCT ON (pai.product_id)
+    		pai.product_id,
+    		pai.id AS announcement_item_id,
+    		pa.id AS announcement_id,
+    		pai.price,
+    		pai.allow_price_change,
+    		pai.max_discount_percent,
+    		pa.approved_at
+		`).
 		Joins("JOIN price_announcements as pa ON pa.id = pai.announcement_id").
 		Where("pai.product_id IN ?", productIDs).
 		Where("pa.status = ?", string(pricing.StatusApproved)).
@@ -198,11 +223,15 @@ func (r *repository) GetActivePricesByProductIDs(ctx context.Context, productIDs
 	}
 
 	priceMap := make(map[uint64]pricingports.ActiveProductPrice, len(results))
+
 	for _, row := range results {
 		priceMap[row.ProductID] = pricingports.ActiveProductPrice{
+			AnnouncementItemID: row.AnnouncementItemID,
+			AnnouncementID:     row.AnnouncementID,
 			Price:              row.Price,
 			AllowPriceChange:   row.AllowPriceChange,
 			MaxDiscountPercent: row.MaxDiscountPercent,
+			ApprovedAt:         row.ApprovedAt,
 		}
 	}
 

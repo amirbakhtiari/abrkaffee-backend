@@ -9,7 +9,6 @@ import (
 	pricingports "github.com/amirbakhtiari/abrcoffee/internal/core/ports/pricing"
 )
 
-// ProductCatalogGateway واسط خواندن مشخصات کاتالوگ محصولات برای ماژول سفارش است.
 type ProductCatalogGateway struct {
 	productRepo  productports.ProductRepository
 	categoryRepo productports.CategoryRepository
@@ -68,7 +67,6 @@ func (g *ProductCatalogGateway) GetActiveProductsByIDs(ctx context.Context, prod
 	return result, nil
 }
 
-// PricingCatalogGateway واسط استعلام آخرین اعلامیه قیمت مصوب برای ماژول سفارش است.
 type PricingCatalogGateway struct {
 	pricingRepo pricingports.PricingRepository
 }
@@ -79,7 +77,6 @@ func NewPricingCatalogGateway(repo pricingports.PricingRepository) orderports.Pr
 	}
 }
 
-// GetActivePricesByProductIDs آخرین قیمت‌های فعال مصوب را دریافت کرده و به ActivePriceSnapshot مپ می‌کند.
 func (g *PricingCatalogGateway) GetActivePricesByProductIDs(ctx context.Context, productIDs []uint64) (map[uint64]orderports.ActivePriceSnapshot, error) {
 	result := make(map[uint64]orderports.ActivePriceSnapshot, len(productIDs))
 	if len(productIDs) == 0 {

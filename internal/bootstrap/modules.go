@@ -12,7 +12,9 @@ import (
 	httppricing "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/pricing"
 	httpproduct "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product"
 	httpattr "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_attribute"
+	httpproductpricing "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/product_pricing"
 	httpuser "github.com/amirbakhtiari/abrcoffee/internal/adapters/http/user"
+
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_attribute"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_auth"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_category"
@@ -21,16 +23,22 @@ import (
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_product"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/repository/pg_user"
 	"github.com/amirbakhtiari/abrcoffee/internal/adapters/storage/local"
+
 	categorydomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/category"
 	productdomain "github.com/amirbakhtiari/abrcoffee/internal/core/domain/product"
+	pricingports "github.com/amirbakhtiari/abrcoffee/internal/core/ports/pricing"
+
 	"github.com/amirbakhtiari/abrcoffee/internal/services/auth_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/category_service"
 	ordersvc "github.com/amirbakhtiari/abrcoffee/internal/services/order_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/pricing_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_attribute_service"
+	productpricingsvc "github.com/amirbakhtiari/abrcoffee/internal/services/product_pricing_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/product_service"
 	"github.com/amirbakhtiari/abrcoffee/internal/services/user_service"
+
 	"github.com/amirbakhtiari/abrcoffee/internal/shared/clock"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -38,6 +46,7 @@ import (
 func registerMiddleware(router *gin.Engine, cfg *config.Config) {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
+	router.Use(middleware.NewCORSMiddleware())
 }
 
 func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
@@ -64,12 +73,24 @@ func registerModules(router *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	// Serve uploaded images from the same storage directory.
 	router.Static("/uploads", fileStorage.Root())
 
+	// Initialize pricing repository and service once.
+	pricingRepo := pg_pricing.NewPostgresRepository(db)
+	pricingService := pricing_service.NewPricingService(pricingRepo)
+
 	registerAuthModule(v1, admin, db, cfg)
 	registerAttributeModule(admin, db)
 	registerUserModule(admin, db)
 	registerCategoryModule(v1, admin, db)
-	registerProductModule(v1, admin, db, fileStorage)
-	registerPricingModule(admin, db)
+
+	registerProductModule(
+		v1,
+		admin,
+		db,
+		fileStorage,
+		pricingService,
+	)
+
+	registerPricingModule(admin, pricingService)
 	registerOrderModule(admin, db)
 
 }
@@ -147,10 +168,12 @@ func registerProductModule(
 	admin *gin.RouterGroup,
 	db *gorm.DB,
 	fileStorage *local.Storage,
+	pricingService pricingports.PricingService,
 ) {
 	productRepo := pg_product.NewPostgresRepository(db)
 	categoryRepo := pg_category.NewPostgresRepository(db)
 
+	// Product service
 	service := product_service.NewProductService(
 		productRepo,
 		categoryRepo,
@@ -163,12 +186,26 @@ func registerProductModule(
 	httpproduct.RegisterPublicRoutes(v1, handler)
 	httpproduct.RegisterProtectedRoutes(admin, handler)
 
+	// Product + Pricing read service
+	productPricingService := productpricingsvc.NewProductPricingService(
+		service,
+		pricingService,
+	)
+
+	productPricingHandler := httpproductpricing.NewHandler(
+		productPricingService,
+	)
+
+	httpproductpricing.RegisterPublicRoutes(v1, productPricingHandler)
+	httpproductpricing.RegisterProtectedRoutes(admin, productPricingHandler)
+
 	log.Println("⚡ Product module wired up successfully.")
 }
 
-func registerPricingModule(admin *gin.RouterGroup, db *gorm.DB) {
-	repo := pg_pricing.NewPostgresRepository(db)
-	service := pricing_service.NewPricingService(repo)
+func registerPricingModule(
+	admin *gin.RouterGroup,
+	service pricingports.PricingService,
+) {
 	handler := httppricing.NewHandler(service)
 
 	httppricing.RegisterProtectedRoutes(admin, handler)
